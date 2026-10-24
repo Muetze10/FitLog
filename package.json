@@ -1,0 +1,14 @@
+{
+  "name": "fitlog",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FitLog – offline Krafttrainingstagebuch als installierbare Web-App",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "python3 -m http.server 8080"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

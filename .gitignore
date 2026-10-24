@@ -1,0 +1,11 @@
+# OpenChamber-Sitzungsdaten (lokal, nicht Teil der App)
+.openchamber/
+
+# System
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+.idea/
+.vscode/
