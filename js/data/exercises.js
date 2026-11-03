@@ -13,6 +13,8 @@ export const SEED_EXERCISES = [
   { id: "fliegende-kh", name: "Fliegende (Kurzhantel)", muscle: "brust", equipment: "kurzhantel" },
   { id: "kabelzug-fliegende", name: "Kabelzug-Fliegende", muscle: "brust", equipment: "kabelzug" },
   { id: "brustpresse", name: "Brustpresse (Maschine)", muscle: "brust", equipment: "maschine" },
+  { id: "butterfly-pec-deck", name: "Butterfly (Pec Deck)", muscle: "brust", equipment: "maschine" },
+  { id: "crossover-kabel", name: "Kabel-Crossover (Brust)", muscle: "brust", equipment: "kabelzug" },
   { id: "dips-brust", name: "Dips (Brust)", muscle: "brust", equipment: "koerpergewicht" },
 
   // ---------- Rücken ----------
@@ -22,6 +24,8 @@ export const SEED_EXERCISES = [
   { id: "rudern-kh", name: "Rudern (Kurzhantel)", muscle: "ruecken", equipment: "kurzhantel" },
   { id: "rudern-kabel", name: "Rudern am Kabelzug", muscle: "ruecken", equipment: "kabelzug" },
   { id: "rudern-maschine", name: "Rudern (Maschine)", muscle: "ruecken", equipment: "maschine" },
+  { id: "einarmiges-rudern-maschine", name: "Einarmiges Rudern (Maschine)", muscle: "ruecken", equipment: "maschine" },
+  { id: "enger-latzug", name: "Latzug (enger Griff)", muscle: "ruecken", equipment: "kabelzug" },
   { id: "tbar-rudern", name: "T-Bar-Rudern", muscle: "ruecken", equipment: "langhantel" },
   { id: "kreuzheben", name: "Kreuzheben", muscle: "ruecken", equipment: "langhantel" },
   { id: "ueberzuege", name: "Überzüge (Kabelzug)", muscle: "ruecken", equipment: "kabelzug" },
@@ -33,6 +37,7 @@ export const SEED_EXERCISES = [
   { id: "schulterpresse", name: "Schulterpresse (Maschine)", muscle: "schultern", equipment: "maschine" },
   { id: "seitheben", name: "Seitheben (Kurzhantel)", muscle: "schultern", equipment: "kurzhantel" },
   { id: "seitheben-kabel", name: "Seitheben (Kabelzug)", muscle: "schultern", equipment: "kabelzug" },
+  { id: "seitheben-maschine", name: "Seitheben (Maschine)", muscle: "schultern", equipment: "maschine" },
   { id: "vorgebeugtes-seitheben", name: "Vorgebeugtes Seitheben", muscle: "schultern", equipment: "kurzhantel" },
   { id: "face-pulls", name: "Face Pulls", muscle: "schultern", equipment: "kabelzug" },
   { id: "aufrechtes-rudern", name: "Aufrechtes Rudern", muscle: "schultern", equipment: "langhantel" },
@@ -44,6 +49,7 @@ export const SEED_EXERCISES = [
   { id: "hammer-curls", name: "Hammer-Curls", muscle: "bizeps", equipment: "kurzhantel" },
   { id: "scott-curls", name: "Scott-Curls", muscle: "bizeps", equipment: "langhantel" },
   { id: "kabel-curls", name: "Kabel-Curls", muscle: "bizeps", equipment: "kabelzug" },
+  { id: "scott-curls-maschine", name: "Scott-Curls (Maschine)", muscle: "bizeps", equipment: "maschine" },
   { id: "konzentrations-curls", name: "Konzentrations-Curls", muscle: "bizeps", equipment: "kurzhantel" },
 
   // ---------- Trizeps ----------
@@ -62,7 +68,9 @@ export const SEED_EXERCISES = [
   { id: "ausfallschritte", name: "Ausfallschritte (Kurzhantel)", muscle: "beine", equipment: "kurzhantel" },
   { id: "rumaenisches-kreuzheben", name: "Rumänisches Kreuzheben", muscle: "beine", equipment: "langhantel" },
   { id: "beinbeuger", name: "Beinbeuger (Maschine)", muscle: "beine", equipment: "maschine" },
+  { id: "beinbeuger-sitzend", name: "Beinbeuger (sitzend)", muscle: "beine", equipment: "maschine" },
   { id: "beinstrecker", name: "Beinstrecker (Maschine)", muscle: "beine", equipment: "maschine" },
+  { id: "adduktoren", name: "Adduktoren-Maschine", muscle: "beine", equipment: "maschine" },
   { id: "wadenheben-stehend", name: "Wadenheben (stehend)", muscle: "beine", equipment: "maschine" },
   { id: "wadenheben-sitzend", name: "Wadenheben (sitzend)", muscle: "beine", equipment: "maschine" },
   { id: "beinpresse-ei", name: "Einbeinige Beinpresse", muscle: "beine", equipment: "maschine" },
@@ -72,6 +80,7 @@ export const SEED_EXERCISES = [
   { id: "glute-bridge", name: "Glute Bridge", muscle: "gesaess", equipment: "koerpergewicht" },
   { id: "kabel-kickbacks", name: "Kabel-Kickbacks (Gesäß)", muscle: "gesaess", equipment: "kabelzug" },
   { id: "abduktoren", name: "Abduktoren-Maschine", muscle: "gesaess", equipment: "maschine" },
+  { id: "hip-thrust-maschine", name: "Hip Thrust (Maschine)", muscle: "gesaess", equipment: "maschine" },
 
   // ---------- Bauch ----------
   { id: "plank", name: "Plank (Unterarmstütz)", muscle: "bauch", equipment: "koerpergewicht" },

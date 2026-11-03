@@ -43,6 +43,11 @@ function setupValue(setup, key) {
   return v === null || v === undefined ? "" : formatSetupNum(v);
 }
 
+// Pause: Endzeitpunkt (Epoch ms) statt Zähler – so läuft sie korrekt weiter,
+// wenn die App-Sicht wechselt, im Hintergrund gedrosselt wird oder gezeichnet
+// wird, während sie läuft.
+let restEndsAt = 0;
+
 export async function renderWorkout(ctx) {
   ctx.setTitle("Training");
   let workout = store.getActiveWorkout();
@@ -71,13 +76,13 @@ export async function renderWorkout(ctx) {
   let cardioRun = null; // { exerciseId, startAt: ms }
 
   function remainingRest() {
-    if (!rest) return 0;
-    return Math.max(0, Math.ceil((rest.endAt - Date.now()) / 1000));
+    if (!restEndsAt) return 0;
+    return Math.max(0, Math.ceil((restEndsAt - Date.now()) / 1000));
   }
 
   function startRest(seconds) {
     if (!seconds || seconds <= 0) return;
-    rest = { endAt: Date.now() + seconds * 1000 };
+    restEndsAt = Date.now() + seconds * 1000;
     updateTick();
   }
 
@@ -92,15 +97,19 @@ export async function renderWorkout(ctx) {
     }
 
     const bar = root.querySelector("#rest-bar");
+    const left = remainingRest();
     if (bar) {
-      const left = remainingRest();
-      if (left <= 0) {
-        bar.hidden = true;
-        rest = null;
-      } else {
+      if (left > 0) {
         bar.hidden = false;
         const label = bar.querySelector("#rest-time");
         if (label) label.textContent = formatDuration(left);
+      } else {
+        bar.hidden = true;
+        if (restEndsAt) {
+          restEndsAt = 0;
+          toast("Pause vorbei – nächster Satz");
+          try { navigator.vibrate?.(300); } catch { /* nicht unterstützt */ }
+        }
       }
     }
   }
@@ -189,6 +198,7 @@ export async function renderWorkout(ctx) {
       <div class="rest-timer" id="rest-bar" hidden>
         <span>${icon("clock")} Pause</span>
         <strong class="mono" id="rest-time">0:00</strong>
+        <button class="btn btn-ghost btn-sm" id="rest-add">+30 s</button>
         <button class="btn btn-ghost btn-sm" id="rest-skip">Überspringen</button>
       </div>
     `;
@@ -199,8 +209,9 @@ export async function renderWorkout(ctx) {
 
     root.querySelector("#finish").addEventListener("click", onFinish);
     root.querySelector("#add-exercise").addEventListener("click", onAddExercise);
+    root.querySelector("#rest-add")?.addEventListener("click", () => startRest(remainingRest() + 30));
     root.querySelector("#rest-skip")?.addEventListener("click", () => {
-      rest = null;
+      restEndsAt = 0;
       root.querySelector("#rest-bar").hidden = true;
     });
 
@@ -213,6 +224,8 @@ export async function renderWorkout(ctx) {
       }
       wireStrengthBlock(card, ex);
     });
+
+    updateTick(); // Pause sofort wieder anzeigen, falls sie noch läuft
   }
 
   function strengthBlock(ex) {
@@ -319,15 +332,14 @@ export async function renderWorkout(ctx) {
         });
       });
       row.querySelector("[data-act='toggle']").addEventListener("click", () => {
-        const set = ex.sets[index];
-        updateSet(workout, ex.exerciseId, index, { done: !set.done });
+        // Achtung: updateSet ändert set.done direkt – daher den alten Wert
+        // vorher merken. Die Pause gehört zum frisch abgeschlossenen Satz.
+        const wasDone = ex.sets[index].done;
+        updateSet(workout, ex.exerciseId, index, { done: !wasDone });
         save();
         updateSummary();
-        if (!set.done) {
-          const pause = ex.restSec || 90;
-          startRest(pause);
-        }
-        row.classList.toggle("is-done", set.done);
+        if (!wasDone) startRest(ex.restSec || 90);
+        row.classList.toggle("is-done", !wasDone);
       });
       row.querySelector("[data-act='del-set']").addEventListener("click", () => {
         removeSet(workout, ex.exerciseId, index);
@@ -420,6 +432,7 @@ export async function renderWorkout(ctx) {
       });
       if (ok) {
         store.clearActiveWorkout();
+        restEndsAt = 0;
         toast("Training verworfen");
         location.hash = "#/";
       }
@@ -437,6 +450,7 @@ export async function renderWorkout(ctx) {
     });
     await store.saveWorkout(finished);
     store.clearActiveWorkout();
+    restEndsAt = 0;
     toast("Training gespeichert");
     location.hash = `#/workout/${finished.id}`;
   }

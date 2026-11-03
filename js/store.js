@@ -8,6 +8,8 @@ import { seedPlans } from "./data/plans.js";
 import { normalizeBlock } from "./core/blocks.js";
 
 const ACTIVE_KEY = "fitlog.activeWorkout";
+/** Erhöht man SEED_VERSION, rüstet syncSeeds() neue Startübungen/Pläne nach. */
+const SEED_VERSION = 2;
 
 export function uid(prefix = "id") {
   const rand = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -24,6 +26,30 @@ export async function ensureSeed() {
   if (plans.length === 0) await db.putMany("plans", seedPlans());
   await db.put("settings", { key: "seeded", value: true });
   return true;
+}
+
+/**
+ * Fügt bestehenden Installationen neue Startübungen/-pläne hinzu, sobald
+ * SEED_VERSION steigt. Eigene oder gelöschte Übungen bleiben unangetastet;
+ * bereits vorhandene IDs werden nicht überschrieben.
+ */
+export async function syncSeeds() {
+  const version = (await db.getOne("settings", "seedVersion"))?.value ?? 0;
+  if (version >= SEED_VERSION) return { exercises: 0, plans: 0 };
+
+  const [exercises, plans] = await Promise.all([db.getAll("exercises"), db.getAll("plans")]);
+  const has = (list, id) => list.some((row) => row.id === id);
+  const missingExercises = seedExercises().filter((e) => !has(exercises, e.id));
+  if (missingExercises.length) await db.putMany("exercises", missingExercises);
+
+  let addedPlans = 0;
+  for (const plan of seedPlans()) {
+    if (has(plans, plan.id)) continue;
+    await savePlan(plan);
+    addedPlans++;
+  }
+  await db.put("settings", { key: "seedVersion", value: SEED_VERSION });
+  return { exercises: missingExercises.length, plans: addedPlans };
 }
 
 // ---------- Übungen ----------

@@ -699,8 +699,8 @@ select.input { appearance: none; }
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px 8px 16px;
+  gap: 8px;
+  padding: 8px 8px 8px 16px;
   border: 1px solid rgb(198 242 78 / 45%);
   border-radius: 999px;
   background: rgb(20 26 31 / 97%);
@@ -711,6 +711,7 @@ select.input { appearance: none; }
 .rest-timer > span { display: flex; align-items: center; gap: 6px; color: var(--muted); }
 .rest-timer .icon { width: 16px; height: 16px; color: var(--accent); }
 .rest-timer strong { font-size: 1.05rem; color: var(--accent); }
+.rest-timer .btn-sm { padding: 4px 8px; font-size: 0.78rem; white-space: nowrap; }
 
 /* ---------- Statistik ---------- */
 

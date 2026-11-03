@@ -2,7 +2,7 @@
 // app.js – Start, Router und Grundgerüst der App.
 // ============================================================
 
-import { ensureSeed, migrateData } from "./store.js";
+import { ensureSeed, migrateData, syncSeeds } from "./store.js";
 import { renderHome } from "./views/home.js";
 import { renderWorkout } from "./views/workout.js";
 import { renderPlans, renderPlanDetail, renderPlanEditor } from "./views/plans.js";
@@ -118,6 +118,15 @@ async function start() {
     await ensureSeed();
   } catch (err) {
     console.error("Startbefüllung fehlgeschlagen:", err);
+  }
+
+  try {
+    const synced = await syncSeeds();
+    if (synced.exercises || synced.plans) {
+      console.info(`Seed nachgerüstet: ${synced.exercises} Übungen, ${synced.plans} Pläne`);
+    }
+  } catch (err) {
+    console.error("Seed-Nachrüstung fehlgeschlagen:", err);
   }
 
   try {
