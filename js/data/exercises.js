@@ -26,6 +26,7 @@ export const SEED_EXERCISES = [
   { id: "rudern-maschine", name: "Rudern (Maschine)", muscle: "ruecken", equipment: "maschine" },
   { id: "einarmiges-rudern-maschine", name: "Einarmiges Rudern (Maschine)", muscle: "ruecken", equipment: "maschine" },
   { id: "enger-latzug", name: "Latzug (enger Griff)", muscle: "ruecken", equipment: "kabelzug" },
+  { id: "rueckenstrecker", name: "Rückenstrecker (Maschine)", muscle: "ruecken", equipment: "maschine" },
   { id: "tbar-rudern", name: "T-Bar-Rudern", muscle: "ruecken", equipment: "langhantel" },
   { id: "kreuzheben", name: "Kreuzheben", muscle: "ruecken", equipment: "langhantel" },
   { id: "ueberzuege", name: "Überzüge (Kabelzug)", muscle: "ruecken", equipment: "kabelzug" },
@@ -94,6 +95,16 @@ export const SEED_EXERCISES = [
   { id: "kreuzheben-rumaenisch-gh", name: "Kreuzheben (Rumänisch, Ganzkörper)", muscle: "ganzkoerper", equipment: "langhantel" },
   { id: "kettlebell-swing", name: "Kettlebell-Swing", muscle: "ganzkoerper", equipment: "kurzhantel" },
   { id: "farmers-walk", name: "Farmer's Walk", muscle: "ganzkoerper", equipment: "kurzhantel" },
+
+  // ---------- Cardio-Geräte ----------
+  // Diese Einträge nutzt man für Cardio-Blöcke (Dauer statt Gewicht).
+  { id: "laufband", name: "Laufband", muscle: "cardio", equipment: "cardio" },
+  { id: "cross-trainer", name: "Crosstrainer", muscle: "cardio", equipment: "cardio" },
+  { id: "stepper", name: "Stepper", muscle: "cardio", equipment: "cardio" },
+  { id: "treppensteiger", name: "Treppensteiger", muscle: "cardio", equipment: "cardio" },
+  { id: "ruderergometer", name: "Ruderergometer", muscle: "cardio", equipment: "cardio" },
+  { id: "fahrrad-ergometer", name: "Fahrrad-Ergometer", muscle: "cardio", equipment: "cardio" },
+  { id: "spinning-bike", name: "Spinning-Bike", muscle: "cardio", equipment: "cardio" },
 ];
 
 /** Übungen mit stabilen, sprechenden IDs und ohne Duplikate. */

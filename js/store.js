@@ -8,8 +8,8 @@ import { seedPlans } from "./data/plans.js";
 import { normalizeBlock } from "./core/blocks.js";
 
 const ACTIVE_KEY = "fitlog.activeWorkout";
-/** Erhöht man SEED_VERSION, rüstet syncSeeds() neue Startübungen/Pläne nach. */
-const SEED_VERSION = 2;
+/** Erhöht man SEED_VERSION, rüstet syncSeeds() neue Startübungen nach. */
+const SEED_VERSION = 3;
 
 export function uid(prefix = "id") {
   const rand = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -43,8 +43,9 @@ export async function syncSeeds() {
   if (missingExercises.length) await db.putMany("exercises", missingExercises);
 
   let addedPlans = 0;
+  const removedSeeds = new Set((await db.getOne("settings", "removedSeedPlans"))?.value || []);
   for (const plan of seedPlans()) {
-    if (has(plans, plan.id)) continue;
+    if (has(plans, plan.id) || removedSeeds.has(plan.id)) continue;
     await savePlan(plan);
     addedPlans++;
   }
@@ -128,7 +129,17 @@ export async function migrateData() {
 }
 
 export function deletePlan(id) {
-  return db.remove("plans", id);
+  return rememberRemovedSeedPlan(id).then(() => db.remove("plans", id));
+}
+
+/** Merkt sich gelöschte Vorlagen-Pläne, damit Seed-Nachrüstung sie nicht wieder einfügt. */
+async function rememberRemovedSeedPlan(id) {
+  const seedIds = new Set(seedPlans().map((p) => p.id));
+  if (!seedIds.has(id)) return;
+  const list = (await db.getOne("settings", "removedSeedPlans"))?.value || [];
+  if (!list.includes(id)) {
+    await db.put("settings", { key: "removedSeedPlans", value: [...list, id] });
+  }
 }
 
 // ---------- Trainings ----------

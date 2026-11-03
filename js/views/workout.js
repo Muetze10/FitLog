@@ -147,7 +147,11 @@ export async function renderWorkout(ctx) {
   }
 
   function targetHint(ex) {
-    if (isCardio(ex)) return cardioSummary(ex) ? `Cardio · Ziel: ${cardioSummary(ex)}` : "Cardio";
+    if (isCardio(ex)) {
+      // Die Muskelgrupp-Zeile zeigt bereits "Cardio"; hier nur das Ziel.
+      const summary = cardioSummary(ex);
+      return summary ? `Ziel: ${summary}` : "";
+    }
     // Trainings-Einträge tragen die Plan-Ziele als targetSets/targetRepsMin/Max.
     const line = blockTargetLine({
       sets: ex.targetSets,
@@ -417,7 +421,11 @@ export async function renderWorkout(ctx) {
       excludeIds: workout.exercises.map((e) => e.exerciseId),
     });
     if (!picked) return;
-    addExercise(workout, picked.id, { sets: 3, repsMin: 8, repsMax: 12, restSec: 90 });
+    if (picked.muscle === "cardio" || picked.equipment === "cardio") {
+      addExercise(workout, picked.id, { type: "cardio", sets: 1, repsMin: 1, repsMax: 1, restSec: 0, cardioMinutes: 20 });
+    } else {
+      addExercise(workout, picked.id, { sets: 3, repsMin: 8, repsMax: 12, restSec: 90 });
+    }
     save();
     draw();
   }

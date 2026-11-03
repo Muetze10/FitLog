@@ -97,10 +97,14 @@ export async function renderExercises(ctx) {
       ? rows
           .map((e) => {
             const pr = records.get(e.id);
+            const subtitle =
+              e.equipment === "cardio"
+                ? `Cardio${e.custom ? " · eigen" : ""}`
+                : `${esc(muscleLabel(e.muscle))} · ${esc(equipmentLabel(e.equipment))}${e.custom ? " · eigen" : ""}`;
             return `<a class="list-row" href="#/uebung/${esc(e.id)}">
               <div>
                 <strong>${esc(e.name)}</strong>
-                <small class="muted">${esc(muscleLabel(e.muscle))} · ${esc(equipmentLabel(e.equipment))}${e.custom ? " · eigen" : ""}</small>
+                <small class="muted">${subtitle}</small>
               </div>
               ${pr ? `<span class="badge">${formatWeight(pr.weight)} kg</span>` : `<span class="muted">${icon("chevron")}</span>`}
             </a>`;
@@ -154,7 +158,7 @@ export async function renderExerciseDetail(ctx, { id }) {
     <a class="back-link" href="#/uebungen">${icon("chevron")} Übungen</a>
     <section>
       <h2>${esc(exercise.name)}</h2>
-      <p class="muted">${esc(muscleLabel(exercise.muscle))} · ${esc(equipmentLabel(exercise.equipment))}${exercise.custom ? " · eigene Übung" : ""}</p>
+      <p class="muted">${esc(exercise.equipment === "cardio" ? "Cardio-Gerät" : `${esc(muscleLabel(exercise.muscle))} · ${esc(equipmentLabel(exercise.equipment))}`)}${exercise.custom ? " · eigene Übung" : ""}</p>
       <div class="row-actions">
         ${exercise.custom ? `<button class="btn btn-ghost" id="edit">${icon("edit")} Bearbeiten</button><button class="icon-btn danger" id="delete" aria-label="Löschen">${icon("trash")}</button>` : ""}
       </div>

@@ -12,6 +12,7 @@ export const MUSCLE_GROUPS = [
   { id: "gesaess", label: "Gesäß" },
   { id: "bauch", label: "Bauch" },
   { id: "ganzkoerper", label: "Ganzkörper" },
+  { id: "cardio", label: "Cardio" },
 ];
 
 export const EQUIPMENT = [
@@ -22,6 +23,7 @@ export const EQUIPMENT = [
   { id: "koerpergewicht", label: "Körpergewicht" },
   { id: "smith", label: "Smith-Maschine" },
   { id: "gestell", label: "Rack/Gestell" },
+  { id: "cardio", label: "Cardio" },
 ];
 
 export function muscleLabel(id) {
