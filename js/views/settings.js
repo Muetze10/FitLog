@@ -74,7 +74,8 @@ export async function renderSettings(ctx) {
 
     <section class="card">
       <h3>Installation</h3>
-      <p class="muted">FitLog läuft als installierbare Web-App und funktioniert danach ohne Internet. Auf Android: Chrome-Menü → „Zum Startbildschirm hinzufügen" → „Installieren".</p>
+      <p class="muted" id="sw-status">Offline-Status wird geprüft …</p>
+      <p class="muted">FitLog läuft als installierbare Web-App und funktioniert danach ohne Internet. Auf Android: Chrome-Menü → „Zum Startbildschirm hinzufügen" → „Installieren". Am Besten einmal kurz online laden, damit der Offline-Cache vorbereitet wird.</p>
     </section>
 
     <section class="card">
@@ -99,6 +100,21 @@ export async function renderSettings(ctx) {
       toast(err.message || "Export fehlgeschlagen", "error");
     }
   });
+
+  // Offline-Status: ist ein Service Worker registriert und aktiv?
+  const swStatus = root.querySelector("#sw-status");
+  if (!navigator.serviceWorker?.getRegistration) {
+    swStatus.textContent = "Offline-Modus wird von diesem Browser nicht unterstützt.";
+  } else {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      swStatus.innerHTML = reg?.active
+        ? `${icon("check")} Offline-Cache aktiv – FitLog kann offline gestartet werden.`
+        : "Noch nicht offline-ready. Einmal kurz online laden lassen (dauert ein paar Sekunden).";
+    } catch {
+      swStatus.textContent = "Offline-Status konnte nicht geprüft werden.";
+    }
+  }
 
   const fileInput = root.querySelector("#import-file");
   root.querySelector("#import").addEventListener("click", () => fileInput.click());

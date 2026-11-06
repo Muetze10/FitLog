@@ -138,12 +138,17 @@ async function start() {
   window.addEventListener("hashchange", route);
   await route();
 
+  // Service Worker für Offline-Nutzung. Wichtig: NACH mehreren awaited
+  // Migrationen hängt ein "load"-Listener zu spät – das Event kann dann
+  // bereits gefeuert haben. Deshalb direkt registrieren bzw. an "load"
+  // nur binden, wenn es noch nicht gefeuert hat (Race-Bug).
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
+    const registerSW = () =>
       navigator.serviceWorker.register("./sw.js").catch((err) => {
         console.warn("Service Worker nicht registriert:", err);
       });
-    });
+    if (document.readyState === "complete") registerSW();
+    else window.addEventListener("load", registerSW, { once: true });
   }
 }
 
