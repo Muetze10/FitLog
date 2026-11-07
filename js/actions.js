@@ -32,41 +32,22 @@ export async function startPlan(planId) {
     id: store.uid("w"),
     name: plan.name,
     planId: plan.id,
-    exercises: plan.exercises.map((e) => {
-      const b = normalizeBlock(e);
-      return {
-        exerciseId: b.exerciseId,
-        sets: b.type === "cardio" ? [] : seedTargetRows(b),
-        repsMin: b.repsMin,
-        repsMax: b.repsMax,
-        restSec: b.restSec,
-        type: b.type,
-        targetWeight: b.targetWeight,
-        grip: b.grip,
-        setup: b.setup,
-        setupText: b.setupText,
-        note: b.note,
-        cardioMinutes: b.cardioMinutes,
-        cardioTargetBpm: b.cardioTargetBpm,
-      };
-    }),
+    exercises: plan.exercises.map((e) => normalizeBlock(e)),
   });
+  // Vorgesehene Satzreihen anlegen (nur noch ausfüllen). Wichtig NACH
+  // createWorkout: die Reihen sind ein Array und dürfen nicht in
+  // createWorkout laufen – dort würde Number(array) als Satzanzahl
+  // interpretiert (NaN → fälschlich 3 statt z. B. 4).
+  for (const entry of workout.exercises) {
+    if (entry.type === "cardio") continue;
+    const count = Math.max(1, Math.round(Number(entry.targetSets) || 1));
+    for (let i = 0; i < count; i++) {
+      entry.sets.push({ weight: Math.max(0, Number(entry.targetWeight) || 0), reps: 0, done: false });
+    }
+  }
   store.setActiveWorkout(workout);
   location.hash = "#/training";
   return workout;
-}
-
-/**
- * Vorgefertigte Satzreihen: so viele leere Reihen, wie der Plan vorsieht –
- * im Training füllt man sie nur noch aus. Gewicht gleich vorbefüllen.
- */
-function seedTargetRows(block) {
-  const count = Math.max(1, Math.round(Number(block.sets) || 0));
-  const rows = [];
-  for (let i = 0; i < count; i++) {
-    rows.push({ weight: Math.max(0, Number(block.targetWeight) || 0), reps: 0, done: false });
-  }
-  return rows;
 }
 
 /** Setzt das laufende Training auf einen neuen Stand und speichert. */

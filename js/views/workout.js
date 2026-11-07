@@ -494,12 +494,26 @@ export async function renderWorkout(ctx) {
         // Achtung: updateSet ändert set.done direkt – daher den alten Wert
         // vorher merken. Die Pause gehört zum frisch abgeschlossenen Satz.
         const wasDone = ex.sets[index].done;
+        const wasOpen = exerciseOpen(ex);
         updateSet(workout, ex.exerciseId, index, { done: !wasDone });
         save();
         updateSummary();
         if (!wasDone) startRest(ex.restSec || 90);
-        // Erledigte Übungen rutschen ans Ende (und beim Abhaken zurück nach oben).
-        draw();
+        // Erledigte Übungen rutschen ans Ende (und beim Abhaken zurück nach
+        // oben). Neu zeichnen nur bei Positionswechsel – sonst verlieren
+        // offene Eingaben in anderen Feldern ihren Stand.
+        if (exerciseOpen(ex) === wasOpen) {
+          row.classList.toggle("is-done", !wasDone);
+          // Satz-Zähler im Kopf aktuell halten, ohne die ganze Ansicht zu
+          // zerstören (das würde laufendes Tippen in anderen Feldern verwerfen).
+          const chip = card.querySelector(".setcount");
+          if (chip) {
+            const doneCount = ex.sets.filter((s) => s.done).length;
+            chip.textContent = `${doneCount}${ex.targetSets ? `/${ex.targetSets}` : ""} ${doneCount === 1 ? "Satz" : "Sätze"}`;
+          }
+        } else {
+          draw();
+        }
         if (!wasDone) maybeSuggestWeightBump(ex, ex.sets[index]);
       });
       row.querySelector("[data-act='del-set']").addEventListener("click", () => {

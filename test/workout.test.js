@@ -122,6 +122,27 @@ test("Bodyweight-Stufe über grade-Feld (addSet/updateSet)", () => {
   assert.equal("grade" in w.exercises[0].sets[0], false);
 });
 
+test("createWorkout übernimmt bereits angelegte Reihen", () => {
+  const rows = [{ weight: 40, reps: 0, done: false }];
+  const w = createWorkout({ id: "w1", exercises: [{ exerciseId: "a", sets: rows }] });
+  assert.deepEqual(w.exercises[0].sets, rows);
+});
+
+test("Planstart-Kette: Zielsätze (4) bleiben erhalten, Reihen passen zur Zielzahl", () => {
+  // Abbild von actions.startPlan: Blöcke erst normalisieren (Zahlen!),
+  // dann Reihen anlegen. Die Reihen dürfen nicht als Satzanzahl interpretiert
+  // werden (früher: Number([4 Reihen]) = NaN → falsch 3).
+  const block = { exerciseId: "beinpresse", sets: 4, repsMin: 8, repsMax: 10, restSec: 90, targetWeight: 71 };
+  const w = createWorkout({ id: "w1", exercises: [block] });
+  const count = Math.max(1, Math.round(Number(w.exercises[0].targetSets) || 1));
+  for (let i = 0; i < count; i++) {
+    w.exercises[0].sets.push({ weight: w.exercises[0].targetWeight, reps: 0, done: false });
+  }
+  assert.equal(w.exercises[0].targetSets, 4);
+  assert.equal(w.exercises[0].sets.length, 4);
+  assert.deepEqual(w.exercises[0].sets[0], { weight: 71, reps: 0, done: false });
+});
+
 test("updateSet/removeSet auf unbekannte Übung ist harmlos", () => {
   const w = createWorkout({ id: "w1" });
   assert.equal(addSet(w, "gibt-es-nicht"), null);

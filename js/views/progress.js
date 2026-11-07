@@ -28,7 +28,6 @@ function sparkline(rows) {
   const PR = 14;
   const PT = 14;
   const PB = 34;
-  const pad = (v) => Math.max(4, ...v);
 
   const points = rows.map((r) => ({ x: new Date(r.date).getTime(), y: r.bestOneRM, reps: r.bestReps, weight: r.bestWeight }));
   if (points.length < 2) {
@@ -42,8 +41,11 @@ function sparkline(rows) {
   }
   const xMin = Math.min(...points.map((p) => p.x));
   const xMax = Math.max(...points.map((p) => p.x));
-  const yMax = pad(points.map((p) => p.y));
-  const yMin = Math.max(0, Math.min(...points.map((p) => p.y)) * 0.9);
+  // Auf 5 kg runden, damit die Achsen klare Werte zeigen.
+  const rawMax = Math.max(...points.map((p) => p.y));
+  const rawMin = Math.min(...points.map((p) => p.y));
+  const yMax = Math.ceil(rawMax / 5) * 5 || 5;
+  const yMin = Math.max(0, Math.floor(rawMin / 5) * 5 - 5);
   const span = Math.max(1, yMax - yMin);
   const X = (t) => (PL + (PR - PL) * ((t - xMin) / Math.max(1, xMax - xMin)));
   const Y = (v) => H - PB - (H - PB - PT) * ((v - yMin) / span);
@@ -100,13 +102,17 @@ export async function renderProgress(ctx) {
   }
   // ---- Verbesserungen: e1RM-Fortschritt der letzten 90 Tage ##############
   const windowStart = Date.now() - 90 * DAY;
+  const isCardioExercise = (id) => {
+    const info = byId.get(id);
+    return info?.muscle === "cardio" || info?.equipment === "cardio";
+  };
   const trainedIds = [
     ...new Set(
       finished.flatMap((w) =>
         (w.exercises || []).filter((e) => (e.sets || []).some((s) => s.done)).map((e) => e.exerciseId)
       )
     ),
-  ];
+  ].filter((id) => !isCardioExercise(id)); // Cardio zählt nicht als Gewichtsverlauf
   const historyById = new Map();
   for (const id of trainedIds) historyById.set(id, exerciseHistory(finished, id));
   const series = [...historyById.entries()].sort((a, b) => b[1].length - a[1].length);
