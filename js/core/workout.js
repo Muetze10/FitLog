@@ -21,7 +21,8 @@ export function createWorkout({ id, name, planId = null, exercises = [], started
       const block = normalizeBlock(e);
       return {
         exerciseId: block.exerciseId,
-        sets: [],
+        // Bereits angelegte (vorgesehene) Reihen aus dem Plan mitnehmen.
+        sets: Array.isArray(e?.sets) ? e.sets : [],
         targetSets: block.sets ?? null,
         targetRepsMin: block.repsMin ?? null,
         targetRepsMax: block.repsMax ?? null,
@@ -68,8 +69,8 @@ export function removeExercise(workout, exerciseId) {
   return workout;
 }
 
-/** Legt einen neuen Satz an (noch nicht abgeschlossen). Cardio-Sätze können Dauer/BPM mitführen. */
-export function addSet(workout, exerciseId, { weight = 0, reps = 0, done = false, durationSec = null, bpm = null } = {}) {
+/** Legt einen neuen Satz an (noch nicht abgeschlossen). Cardio-Sätze können Dauer/BPM mitführen, Bodyweight eine Stufe. */
+export function addSet(workout, exerciseId, { weight = 0, reps = 0, done = false, durationSec = null, bpm = null, grade = null } = {}) {
   const ex = workout.exercises.find((e) => e.exerciseId === exerciseId);
   if (!ex) return null;
   const set = { weight: Number(weight) || 0, reps: Number(reps) || 0, done: Boolean(done) };
@@ -77,6 +78,8 @@ export function addSet(workout, exerciseId, { weight = 0, reps = 0, done = false
   if (duration !== null) set.durationSec = Math.round(duration);
   const targetBpm = parseOptionalNumber(bpm);
   if (targetBpm !== null) set.bpm = Math.round(targetBpm);
+  const gradeVal = parseOptionalNumber(grade);
+  if (gradeVal !== null) set.grade = Math.round(gradeVal);
   ex.sets.push(set);
   return set;
 }
@@ -87,6 +90,11 @@ export function updateSet(workout, exerciseId, index, patch) {
   if (!ex || !ex.sets[index]) return null;
   const set = ex.sets[index];
   if ("weight" in patch) set.weight = Math.max(0, Number(patch.weight) || 0);
+  if ("grade" in patch) {
+    const grade = parseOptionalNumber(patch.grade);
+    if (grade === null) delete set.grade;
+    else set.grade = Math.round(Math.max(0, grade));
+  }
   if ("reps" in patch) set.reps = Math.max(0, Math.round(Number(patch.reps) || 0));
   if ("done" in patch) set.done = Boolean(patch.done);
   if ("durationSec" in patch) {

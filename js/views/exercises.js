@@ -106,7 +106,7 @@ export async function renderExercises(ctx) {
                 <strong>${esc(e.name)}</strong>
                 <small class="muted">${subtitle}</small>
               </div>
-              ${pr ? `<span class="badge">${formatWeight(pr.weight)} kg</span>` : `<span class="muted">${icon("chevron")}</span>`}
+              ${pr ? `<span class="badge">${e.equipment === "koerpergewicht" ? `${pr.reps} Wdh` : `${formatWeight(pr.weight)} kg`}</span>` : `<span class="muted">${icon("chevron")}</span>`}
             </a>`;
           })
           .join("")

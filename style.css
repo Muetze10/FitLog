@@ -1036,3 +1036,25 @@ select.input { appearance: none; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------- Fortschritt & Training-Feinheiten ---------- */
+
+.spark-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.spark-grid { stroke: var(--surface-2); stroke-width: 1; }
+
+.spark-label { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+
+.view-progress .stat-row { margin-bottom: 4px; }
+
+/* Erledigte Übungen rutschen ans Ende und wirken abgesetzt */
+.exercise-card.is-done-ex { opacity: 0.7; }
+.exercise-card.is-done-ex .card-head h3 a { color: var(--muted); }
+.icon-check-done { color: var(--accent); }
+.setcount { font-size: 0.78rem; }

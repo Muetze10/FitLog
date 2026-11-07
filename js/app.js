@@ -8,7 +8,7 @@ import { renderWorkout } from "./views/workout.js";
 import { renderPlans, renderPlanDetail, renderPlanEditor } from "./views/plans.js";
 import { renderExercises, renderExerciseDetail } from "./views/exercises.js";
 import { renderHistory, renderWorkoutDetail } from "./views/history.js";
-import { renderStats } from "./views/stats.js";
+import { renderProgress } from "./views/progress.js";
 import { renderSettings } from "./views/settings.js";
 import { icon } from "./ui.js";
 
@@ -23,7 +23,7 @@ const ROUTES = [
   { pattern: /^\/uebung\/([^/]+)$/, render: (ctx, m) => renderExerciseDetail(ctx, { id: m[1] }), tab: "uebungen" },
   { pattern: /^\/verlauf$/, render: renderHistory, tab: "verlauf" },
   { pattern: /^\/workout\/([^/]+)$/, render: (ctx, m) => renderWorkoutDetail(ctx, { id: m[1] }), tab: "verlauf" },
-  { pattern: /^\/statistik$/, render: renderStats, tab: "statistik" },
+  { pattern: /^\/statistik$/, render: renderProgress, tab: "statistik" },
   { pattern: /^\/einstellungen$/, render: renderSettings, tab: null },
 ];
 
@@ -32,7 +32,7 @@ const TABS = [
   { id: "plaene", href: "#/plaene", label: "Pläne", icon: "plan" },
   { id: "uebungen", href: "#/uebungen", label: "Übungen", icon: "dumbbell" },
   { id: "verlauf", href: "#/verlauf", label: "Verlauf", icon: "history" },
-  { id: "statistik", href: "#/statistik", label: "Statistik", icon: "chart" },
+  { id: "statistik", href: "#/statistik", label: "Fortschritt", icon: "chart" },
 ];
 
 const viewEl = document.getElementById("view");

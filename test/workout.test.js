@@ -104,6 +104,24 @@ test("Sätze hinzufügen, ändern, entfernen", () => {
   assert.equal(w.exercises[0].sets.length, 0);
 });
 
+test("Bodyweight-Stufe über grade-Feld (addSet/updateSet)", () => {
+  const w = createWorkout({ id: "w1", exercises: [{ exerciseId: "crunch" }] });
+
+  addSet(w, "crunch", { weight: 0, reps: 15, grade: 3 });
+  let set = w.exercises[0].sets[0];
+  assert.deepEqual(set, { weight: 0, reps: 15, done: false, grade: 3 });
+
+  updateSet(w, "crunch", 0, { grade: 4 });
+  assert.equal(w.exercises[0].sets[0].grade, 4);
+
+  updateSet(w, "crunch", 0, { grade: "" });
+  assert.equal("grade" in w.exercises[0].sets[0], false);
+
+  // Negative/nicht-numerische Werte werden verworfen (Feld bleibt leer).
+  updateSet(w, "crunch", 0, { grade: -1 });
+  assert.equal("grade" in w.exercises[0].sets[0], false);
+});
+
 test("updateSet/removeSet auf unbekannte Übung ist harmlos", () => {
   const w = createWorkout({ id: "w1" });
   assert.equal(addSet(w, "gibt-es-nicht"), null);

@@ -3,7 +3,7 @@
 // WICHTIG: Bei jeder Änderung an Dateien CACHE_VERSION erhöhen!
 // ============================================================
 
-const CACHE_VERSION = "fitlog-v8";
+const CACHE_VERSION = "fitlog-v10";
 const ASSETS = [
   "./",
   "./index.html",
@@ -26,7 +26,7 @@ const ASSETS = [
   "./js/views/plans.js",
   "./js/views/exercises.js",
   "./js/views/history.js",
-  "./js/views/stats.js",
+  "./js/views/progress.js",
   "./js/views/settings.js",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -71,5 +71,19 @@ self.addEventListener("fetch", (event) => {
 
       return cached || network;
     })
+  );
+});
+
+// Pausen-Benachrichtigung: Klick öffnet/fokussiert die App.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clients) => {
+        const visible = clients.find((c) => c.visibilityState === "visible");
+        if (visible) return visible.focus();
+        return self.clients.openWindow("./index.html#/training");
+      })
   );
 });

@@ -27,7 +27,7 @@ import {
 import { exerciseHistory, workoutVolume, workoutSetCount } from "../core/stats.js";
 import { formatDayLabel, formatDuration, formatWeight, formatVolume } from "../core/format.js";
 import { muscleLabel } from "../core/validation.js";
-import { confirmDialog, exercisePicker, icon, esc, toast } from "../ui.js";
+import { confirmDialog, exercisePicker, openModal, onResult, icon, esc, toast } from "../ui.js";
 
 function parseNumber(value) {
   const n = Number(String(value ?? "").replace(",", "."));
@@ -47,6 +47,81 @@ function setupValue(setup, key) {
 // wenn die App-Sicht wechselt, im Hintergrund gedrosselt wird oder gezeichnet
 // wird, während sie läuft.
 let restEndsAt = 0;
+
+// ---- Pausen-Benachrichtigung: der Countdown läuft als Push weiter ----------
+
+const REST_NOTIFICATION_TAG = "fitlog-rest";
+
+function restNotificationRegistration() {
+  return navigator.serviceWorker?.getRegistration?.() ?? null;
+}
+
+/** Erst beim ersten Rest-Start nach Erlaubnis fragen (User-Geste nötig). */
+async function ensureNotificationPermission() {
+  if (!("Notification" in window) || Notification.permission === "denied") return false;
+  if (Notification.permission === "default") {
+    try {
+      if ((await Notification.requestPermission()) !== "granted") return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Lässt die Pausen-Notification mitlaufen (gleicher Tag = ersetzt die alte). */
+async function showRestNotification(body, { final = false } = {}) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  try {
+    const reg = await restNotificationRegistration();
+    await reg?.showNotification?.("FitLog – Pause", {
+      tag: REST_NOTIFICATION_TAG,
+      renotify: true,
+      requireInteraction: false,
+      silent: !final,
+      vibrate: final ? [300] : undefined,
+      body,
+      icon: "./icons/icon-192.png",
+    });
+  } catch {
+    /* Benachrichtigungen nicht verfügbar – In-App-Timer läuft trotzdem */
+  }
+}
+
+async function closeRestNotifications() {
+  try {
+    const reg = await restNotificationRegistration();
+    const notes = await reg?.getNotifications?.({ tag: REST_NOTIFICATION_TAG });
+    notes?.forEach((n) => n.close());
+  } catch {
+    /* egal */
+  }
+}
+
+/** Countdown als Benachrichtigung mitlaufen lassen – auch ohne sichtbare App. */
+let restNotify = null; // { endAt, timerId, done }
+
+function stopRestNotifications() {
+  if (restNotify?.timerId) clearInterval(restNotify.timerId);
+  restNotify = null;
+}
+
+function startRestNotifications(seconds) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  stopRestNotifications();
+  const entry = { endAt: Date.now() + seconds * 1000, done: false, timerId: null };
+  entry.timerId = setInterval(() => {
+    const left = Math.ceil((entry.endAt - Date.now()) / 1000);
+    if (left <= 0) {
+      entry.done = true;
+      clearInterval(entry.timerId);
+      showRestNotification("Pause vorbei – nächster Satz", { final: true });
+    } else {
+      showRestNotification(`Noch ${formatDuration(left)}`);
+    }
+  }, 1000);
+  restNotify = entry;
+}
 
 export async function renderWorkout(ctx) {
   ctx.setTitle("Training");
@@ -84,6 +159,11 @@ export async function renderWorkout(ctx) {
     if (!seconds || seconds <= 0) return;
     restEndsAt = Date.now() + seconds * 1000;
     updateTick();
+    // Countdown auch als Benachrichtigung mitlaufen lassen (Erlaubnis beim
+    // ersten Rest-Start per User-Geste einholen).
+    ensureNotificationPermission().then((granted) => {
+      if (granted) startRestNotifications(seconds);
+    });
   }
 
   function updateTick() {
@@ -123,6 +203,12 @@ export async function renderWorkout(ctx) {
     const history = exerciseHistoryFor(ex.exerciseId);
     const last = history[history.length - 1];
     if (!last) return "";
+    // Körpergewicht-Übungen: Wiederholungen (+ Stufe) statt "0 kg".
+    if (byId.get(ex.exerciseId)?.equipment === "koerpergewicht") {
+      const best = last.sets.reduce((b, s) => (!b || s.reps > b.reps ? s : b), null);
+      const grade = best?.grade != null ? ` (Stufe ${best.grade})` : "";
+      return `<div class="cw-line" title="Letzte Ausführung">${icon("history", "icon")} Letztes Mal: <strong>${last.bestReps} Wdh${esc(grade)}</strong> <span class="muted">${esc(formatDayLabel(last.date))}</span></div>`;
+    }
     const weight = formatWeight(last.bestWeight);
     const reps = last.bestReps ? ` × ${last.bestReps}` : "";
     return `<div class="cw-line" title="Letzte Ausführung">${icon("history", "icon")} Letztes Gewicht: <strong>${esc(weight)} kg${esc(reps)}</strong> <span class="muted">${esc(formatDayLabel(last.date))}</span></div>`;
@@ -162,6 +248,22 @@ export async function renderWorkout(ctx) {
     return line ? `Ziel: ${line}` : "";
   }
 
+  function loadExercises() {
+    // Erledigte Übungen (alle Zielsätze abgeschlossen) rutschen ans Ende,
+    // die offenen bleiben oben – relative Reihenfolge bleibt erhalten.
+    return workout.exercises
+      .map((ex, index) => ({ ex, index, open: exerciseOpen(ex) }))
+      .sort((a, b) => (a.open === b.open ? a.index - b.index : a.open ? -1 : 1))
+      .map((row) => row.ex);
+  }
+
+  /** Eine Übung (Kraft) gilt als erledigt, wenn alle Zielsätze abgeschlossen sind. Cardio zählt als offen. */
+  function exerciseOpen(ex) {
+    if (isCardio(ex)) return true;
+    const done = ex.sets.filter((s) => s.done).length;
+    return ex.sets.some((s) => !s.done) || (ex.targetSets ? done < ex.targetSets : false);
+  }
+
   function draw() {
     const totalSets = workoutSetCount(workout);
     root.innerHTML = `
@@ -177,19 +279,22 @@ export async function renderWorkout(ctx) {
       <section class="exercise-stack">
         ${
           workout.exercises.length
-            ? workout.exercises
-                .map((ex, index) => {
+            ? loadExercises()
+                .map((ex, order) => {
                   const info = byId.get(ex.exerciseId);
                   const cardio = isCardio(ex);
-                  return `<article class="card exercise-card ${cardio ? "is-cardio" : ""}" data-ex="${esc(ex.exerciseId)}">
+                  const open = exerciseOpen(ex);
+                  const doneCount = ex.sets.filter((s) => s.done).length;
+                  const target = !cardio && ex.targetSets ? ` · ${doneCount}/${ex.targetSets}` : "";
+                  return `<article class="card exercise-card ${cardio ? "is-cardio" : ""} ${!open ? "is-done-ex" : ""}" data-ex="${esc(ex.exerciseId)}">
                     <div class="card-head">
                       <div>
-                        <h3><span class="mono muted">${index + 1}.</span> <a class="plain-link" href="#/uebung/${esc(ex.exerciseId)}">${esc(info?.name || ex.exerciseId)}</a>${cardio ? " " + icon("heart", "icon icon-heart") : ""}</h3>
-                        <small class="muted">${esc(muscleLabel(info?.muscle))}${targetHint(ex) ? " · " + esc(targetHint(ex)) : ""}</small>
+                        <h3><span class="mono muted">${order + 1}.</span> <a class="plain-link" href="#/uebung/${esc(ex.exerciseId)}">${esc(info?.name || ex.exerciseId)}</a>${cardio ? " " + icon("heart", "icon icon-heart") : ""}${!cardio ? ` <span class="muted mono setcount">${doneCount}${ex.targetSets ? `/${ex.targetSets}` : ""} ${doneCount === 1 ? "Satz" : "Sätze"}</span>` : ""}${!cardio && !open ? ` ${icon("check", "icon icon-check-done")}` : ""}</h3>
+                        <small class="muted">${esc(muscleLabel(info?.muscle))}${targetHint(ex) ? " · " + esc(targetHint(ex)) : ""}${target}</small>
                       </div>
                       <button class="icon-btn" data-act="remove-ex" aria-label="Übung entfernen">${icon("trash")}</button>
                     </div>
-                    ${cardio ? cardioBlock(ex) : strengthBlock(ex)}
+                    ${cardio ? cardioBlock(ex) : strengthBlock(ex, info)}
                   </article>`;
                 })
                 .join("")
@@ -217,6 +322,8 @@ export async function renderWorkout(ctx) {
     root.querySelector("#rest-skip")?.addEventListener("click", () => {
       restEndsAt = 0;
       root.querySelector("#rest-bar").hidden = true;
+      stopRestNotifications();
+      closeRestNotifications();
     });
 
     root.querySelectorAll(".exercise-card").forEach((card) => {
@@ -232,17 +339,19 @@ export async function renderWorkout(ctx) {
     updateTick(); // Pause sofort wieder anzeigen, falls sie noch läuft
   }
 
-  function strengthBlock(ex) {
+  function strengthBlock(ex, info) {
+    const bodyweight = info?.equipment === "koerpergewicht";
+    const weightLabel = bodyweight ? "Stufe" : "kg";
     return `
       ${planSetupLine(ex)}
       ${lastWeightLine(ex)}
       <div class="set-table">
-        <div class="set-header"><span>#</span><span>kg</span><span></span><span>Wdh</span><span></span><span></span></div>
+        <div class="set-header"><span>#</span><span>${weightLabel}</span><span></span><span>Wdh</span><span></span><span></span></div>
         ${ex.sets
           .map(
             (set, index) => `<div class="set-row ${set.done ? "is-done" : ""}" data-idx="${index}">
               <span class="set-index">${index + 1}</span>
-              <input class="input set-input" inputmode="decimal" data-field="weight" value="${formatWeight(set.weight)}" aria-label="Gewicht" />
+              <input class="input set-input" inputmode="${bodyweight ? "numeric" : "decimal"}" data-field="${bodyweight ? "grade" : "weight"}" value="${bodyweight ? (set.grade ?? "") : formatWeight(set.weight)}" aria-label="${weightLabel}" />
               <span class="set-x">×</span>
               <input class="input set-input" inputmode="numeric" data-field="reps" value="${set.reps || ""}" aria-label="Wiederholungen" />
               <button class="set-check" data-act="toggle" aria-label="Satz abschließen">${icon("check")}</button>
@@ -303,7 +412,52 @@ export async function renderWorkout(ctx) {
   }
 
   function prefillFor(ex) {
-    return nextSetSuggestion(ex, exerciseHistoryFor(ex.exerciseId), ex.targetRepsMin || 8);
+    const suggestion = nextSetSuggestion(ex, exerciseHistoryFor(ex.exerciseId), ex.targetRepsMin || 8);
+    // Nach einem „Gewicht erhöhen"-Dialog schlägt die gestiegene Verbindung vor.
+    if (ex.progressWeight && ex.progressWeight > 0) suggestion.weight = ex.progressWeight;
+    // Bei Bodyweight die letzte Stufe als Vorschlag übernehmen.
+    const lastGrade = [...ex.sets].reverse().find((s) => s.grade !== undefined && s.grade !== null)?.grade;
+    if (lastGrade !== undefined) suggestion.grade = lastGrade;
+    return suggestion;
+  }
+
+  /**
+   * Nach einem erfüllten Satz mit mehr als 12 Wiederholungen fragen,
+   * ob das Gewicht erhöht wird – mit Eingabefeld, fertig vorbefüllt.
+   */
+  function maybeSuggestWeightBump(ex, set) {
+    const info = byId.get(ex.exerciseId);
+    if (isCardio(ex) || info?.equipment === "koerpergewicht") return;
+    const threshold = Math.max(12, ex.targetRepsMax || 12);
+    if (set.reps <= threshold || set.weight <= 0) return;
+    const suggestion = Math.round((set.weight + 2.5) * 2) / 2;
+    openModal(
+      `<h2 class="modal-title">Gewicht erhöhen?</h2>
+       <p class="modal-text">${esc(formatWeight(set.weight))} kg × ${set.reps} geschafft – Zeit für mehr!</p>
+       <label class="field"><span>Neues Gewicht (kg)</span>
+         <input id="bump-weight" class="input" inputmode="decimal" value="${esc(formatWeight(suggestion))}" /></label>
+       <div class="modal-actions">
+         <button class="btn btn-ghost" data-close>Behalten</button>
+         <button class="btn btn-primary" id="bump-ok">Erhöhen</button>
+       </div>`,
+      {
+        onMount(dialog, closeFn, setResult) {
+          onResult(dialog, (value) => {
+            if (!value || value <= 0) return;
+            ex.progressWeight = value;
+            save();
+            toast(`Gewicht erhöht auf ${formatWeight(value)} kg`);
+          });
+          const input = dialog.querySelector("#bump-weight");
+          input.focus();
+          input.select?.();
+          dialog.querySelector("#bump-ok").addEventListener("click", () => {
+            setResult(parseNumber(input.value));
+            closeFn();
+          });
+        },
+      }
+    );
   }
 
   function updateSetupInput(ex, input) {
@@ -329,8 +483,9 @@ export async function renderWorkout(ctx) {
       const index = Number(row.dataset.idx);
       row.querySelectorAll("[data-field]").forEach((input) => {
         input.addEventListener("change", () => {
-          const value = input.dataset.field === "reps" ? Math.round(parseNumber(input.value)) : parseNumber(input.value);
-          updateSet(workout, ex.exerciseId, index, { [input.dataset.field]: value });
+          const field = input.dataset.field;
+          const value = field === "reps" ? Math.round(parseNumber(input.value)) : parseNumber(input.value);
+          updateSet(workout, ex.exerciseId, index, { [field]: value });
           save();
           updateSummary();
         });
@@ -343,7 +498,9 @@ export async function renderWorkout(ctx) {
         save();
         updateSummary();
         if (!wasDone) startRest(ex.restSec || 90);
-        row.classList.toggle("is-done", !wasDone);
+        // Erledigte Übungen rutschen ans Ende (und beim Abhaken zurück nach oben).
+        draw();
+        if (!wasDone) maybeSuggestWeightBump(ex, ex.sets[index]);
       });
       row.querySelector("[data-act='del-set']").addEventListener("click", () => {
         removeSet(workout, ex.exerciseId, index);
@@ -353,7 +510,7 @@ export async function renderWorkout(ctx) {
     });
     card.querySelector("[data-act='add-set']").addEventListener("click", () => {
       const fill = prefillFor(ex);
-      addSet(workout, ex.exerciseId, { weight: fill.weight, reps: fill.reps });
+      addSet(workout, ex.exerciseId, { weight: fill.weight, reps: fill.reps, grade: fill.grade ?? null });
       save();
       draw();
     });
@@ -425,6 +582,14 @@ export async function renderWorkout(ctx) {
       addExercise(workout, picked.id, { type: "cardio", sets: 1, repsMin: 1, repsMax: 1, restSec: 0, cardioMinutes: 20 });
     } else {
       addExercise(workout, picked.id, { sets: 3, repsMin: 8, repsMax: 12, restSec: 90 });
+      // Vorgesehene Sätze direkt als leere Reihen anlegen – nur noch ausfüllen.
+      const entry = workout.exercises.find((e) => e.exerciseId === picked.id);
+      const bodyweight = picked.equipment === "koerpergewicht";
+      const fill = entry ? prefillFor(entry) : null;
+      const prefillWeight = bodyweight ? 0 : Math.max(0, fill?.weight || entry?.targetWeight || 0);
+      for (let i = 0; i < (entry?.targetSets || 3); i++) {
+        addSet(workout, picked.id, { weight: prefillWeight, reps: 0, grade: bodyweight && fill?.grade != null ? fill.grade : null });
+      }
     }
     save();
     draw();
@@ -441,6 +606,8 @@ export async function renderWorkout(ctx) {
       if (ok) {
         store.clearActiveWorkout();
         restEndsAt = 0;
+        stopRestNotifications();
+        closeRestNotifications();
         toast("Training verworfen");
         location.hash = "#/";
       }
@@ -459,6 +626,8 @@ export async function renderWorkout(ctx) {
     await store.saveWorkout(finished);
     store.clearActiveWorkout();
     restEndsAt = 0;
+    stopRestNotifications();
+    closeRestNotifications();
     toast("Training gespeichert");
     location.hash = `#/workout/${finished.id}`;
   }

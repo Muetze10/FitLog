@@ -36,7 +36,7 @@ export async function startPlan(planId) {
       const b = normalizeBlock(e);
       return {
         exerciseId: b.exerciseId,
-        sets: b.sets,
+        sets: b.type === "cardio" ? [] : seedTargetRows(b),
         repsMin: b.repsMin,
         repsMax: b.repsMax,
         restSec: b.restSec,
@@ -54,6 +54,19 @@ export async function startPlan(planId) {
   store.setActiveWorkout(workout);
   location.hash = "#/training";
   return workout;
+}
+
+/**
+ * Vorgefertigte Satzreihen: so viele leere Reihen, wie der Plan vorsieht –
+ * im Training füllt man sie nur noch aus. Gewicht gleich vorbefüllen.
+ */
+function seedTargetRows(block) {
+  const count = Math.max(1, Math.round(Number(block.sets) || 0));
+  const rows = [];
+  for (let i = 0; i < count; i++) {
+    rows.push({ weight: Math.max(0, Number(block.targetWeight) || 0), reps: 0, done: false });
+  }
+  return rows;
 }
 
 /** Setzt das laufende Training auf einen neuen Stand und speichert. */

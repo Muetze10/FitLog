@@ -93,7 +93,7 @@ export async function renderWorkoutDetail(ctx, { id }) {
                 .map((s) =>
                   s.durationSec
                     ? `<span class="set-pill ${s.done ? "is-done" : ""}">${esc(formatDuration(s.durationSec))}${s.bpm ? " · " + s.bpm + " BPM" : ""}</span>`
-                    : `<span class="set-pill ${s.done ? "is-done" : ""}">${formatWeight(s.weight)} kg × ${s.reps}</span>`
+                    : `<span class="set-pill ${s.done ? "is-done" : ""}">${s.grade != null ? `Stufe ${s.grade}` : `${formatWeight(s.weight)} kg`} × ${s.reps}</span>`
                 )
                 .join("")}
             </div>
