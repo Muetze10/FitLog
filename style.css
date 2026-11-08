@@ -1053,6 +1053,11 @@ select.input { appearance: none; }
 
 .view-progress .stat-row { margin-bottom: 4px; }
 
+/* Übungsverlauf: eine Karte pro Übung, alles direkt sichtbar */
+.chart-list { display: grid; gap: 0; }
+.chart-card svg { display: block; width: 100%; height: auto; margin-top: 8px; }
+.chart-card .hint { margin: 2px 0 0; font-size: 0.82rem; }
+
 /* Erledigte Übungen rutschen ans Ende und wirken abgesetzt */
 .exercise-card.is-done-ex { opacity: 0.7; }
 .exercise-card.is-done-ex .card-head h3 a { color: var(--muted); }

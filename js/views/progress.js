@@ -20,32 +20,47 @@ function mondayOf(date) {
   return d.getTime();
 }
 
-/** Gewichtsverlauf als SVG-Linie (e1RM je Session). Reine Anzeige. */
-function sparkline(rows) {
+/** Stufe aus einer History-Zeile (Bodyweight): der Satz mit den meisten Wdh. */
+function bestGradeOf(row) {
+  const withGrade = (row?.sets || [])
+    .filter((s) => s.grade != null && s.grade !== "")
+    .sort((a, b) => (b.reps || 0) - (a.reps || 0));
+  return withGrade[0]?.grade ?? null;
+}
+
+/** Verlaufs-Kurve als SVG. metric: "e1rm" (Kraft) oder "reps" (Bodyweight). */
+function sparkline(rows, metric = "e1rm") {
   const W = 600;
   const H = 190;
   const PL = 46;
   const PR = 14;
   const PT = 14;
   const PB = 34;
+  const isReps = metric === "reps";
+  const valueOf = (r) => (isReps ? r.bestReps : r.bestOneRM);
+  const dotText = (p) =>
+    isReps
+      ? `${p.reps} Wdh${p.grade != null && p.grade !== "" ? ` (Stufe ${p.grade})` : ""}`
+      : `${formatWeight(p.weight)} kg${p.reps ? ` × ${p.reps}` : ""}`;
+  const fmt = (v) => (isReps ? Math.round(v) : formatWeight(v));
 
-  const points = rows.map((r) => ({ x: new Date(r.date).getTime(), y: r.bestOneRM, reps: r.bestReps, weight: r.bestWeight }));
+  const points = rows.map((r, i) => ({ x: new Date(r.date).getTime(), y: valueOf(r), reps: r.bestReps, weight: r.bestWeight, grade: bestGradeOf(r) }));
   if (points.length < 2) {
     const p = points[0];
     if (!p) return `<p class="empty">Noch keine Daten.</p>`;
-    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gewichtsverlauf">
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Verlauf">
       <circle cx="${W / 2}" cy="${H / 2}" r="5" fill="var(--accent)" />
-      <text x="${W / 2}" y="${H / 2 - 14}" text-anchor="middle" class="spark-label">${esc(formatWeight(p.weight))} kg${p.reps ? ` × ${p.reps}` : ""}</text>
+      <text x="${W / 2}" y="${H / 2 - 14}" text-anchor="middle" class="spark-label">${esc(dotText(p))}</text>
       <text x="${W / 2}" y="${H - PT - 6}" text-anchor="middle" class="spark-label">${esc(formatDate(p.date))}</text>
     </svg>`;
   }
   const xMin = Math.min(...points.map((p) => p.x));
   const xMax = Math.max(...points.map((p) => p.x));
-  // Auf 5 kg runden, damit die Achsen klare Werte zeigen.
+  // Auf 5 runden (kg bzw. Wdh), damit die Achsen klare Werte zeigen.
   const rawMax = Math.max(...points.map((p) => p.y));
   const rawMin = Math.min(...points.map((p) => p.y));
-  const yMax = Math.ceil(rawMax / 5) * 5 || 5;
-  const yMin = Math.max(0, Math.floor(rawMin / 5) * 5 - 5);
+  const yMax = isReps ? Math.max(1, Math.ceil(rawMax)) : Math.ceil(rawMax / 5) * 5 || 5;
+  const yMin = isReps ? 0 : Math.max(0, Math.floor(rawMin / 5) * 5 - 5);
   const span = Math.max(1, yMax - yMin);
   const X = (t) => (PL + (PR - PL) * ((t - xMin) / Math.max(1, xMax - xMin)));
   const Y = (v) => H - PB - (H - PB - PT) * ((v - yMin) / span);
@@ -54,7 +69,7 @@ function sparkline(rows) {
   const dots = points
     .map(
       (p) => `<circle cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.5" fill="var(--accent)">
-        <title>${esc(formatDate(p.date))}: ${esc(formatWeight(p.weight))} kg${p.reps ? ` × ${p.reps}` : ""}</title>
+        <title>${esc(formatDate(p.date))}: ${esc(dotText(p))}</title>
       </circle>`
     )
     .join("");
@@ -62,11 +77,11 @@ function sparkline(rows) {
     const v = yMin + span * f;
     const y = Y(v).toFixed(1);
     return `<line x1="${PL}" x2="${W - PR}" y1="${y}" y2="${y}" class="spark-grid" />
-      <text x="${PL - 6}" y="${Number(y) + 4}" text-anchor="end" class="spark-label">${esc(formatWeight(v))}</text>`;
+      <text x="${PL - 6}" y="${Number(y) + 4}" text-anchor="end" class="spark-label">${esc(String(fmt(v)))}</text>`;
   });
   const first = points[0];
   const last = points[points.length - 1];
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gewichtsverlauf">
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Verlauf">
     ${yTicks}
     <path d="${line}" class="spark-line" />
     ${dots}
@@ -195,16 +210,39 @@ export async function renderProgress(ctx) {
     }
     </section>
 
-    <section class="card">
-      <div class="card-head"><h3>Gewichtsverlauf</h3><small class="muted">bestes Gewicht je Training</small></div>
-      ${
-        series.length
-          ? `<select class="input" id="chart-select" aria-label="Übung wählen">
-              ${series.map(([id]) => `<option value="${esc(id)}">${esc(byId.get(id)?.name || id)}</option>`).join("")}
-            </select>`
-          : ""
-      }
-      <div id="chart-wrap"></div>
+    <section>
+      <div class="section-head"><h3>Übungsverlauf</h3><small class="muted">je Übung, e1RM bzw. Wdh</small></div>
+      ${series.length
+        ? `<div class="chart-list">${series
+            .map(([id, rows]) => {
+              const info = byId.get(id);
+              const body = info?.equipment === "koerpergewicht";
+              const first = rows[0];
+              const last = rows[rows.length - 1];
+              // Kennzahl-Zeile unter der Kurve: Entwicklung der Übung auf einen Blick.
+              let meta;
+              if (body) {
+                const grade = bestGradeOf(last);
+                meta = `${rows.length} ${rows.length === 1 ? "Training" : "Trainings"} · ${first.bestReps} → ${last.bestReps} Wdh${
+                  grade != null && grade !== "" ? ` (Stufe ${esc(grade)})` : ""
+                }`;
+              } else {
+                const rise = last.bestOneRM - first.bestOneRM;
+                meta = `${rows.length} ${rows.length === 1 ? "Training" : "Trainings"} · ${esc(formatWeight(first.bestWeight))} → ${esc(
+                  formatWeight(last.bestWeight)
+                )} kg${rise > 0 ? ` · e1RM +${esc(formatWeight(rise))} kg` : ""}`;
+              }
+              return `<article class="card chart-card">
+                <div class="card-head">
+                  <h3><a class="plain-link" href="#/uebung/${esc(id)}">${esc(info?.name || id)}</a></h3>
+                  <small class="muted">${esc(muscleLabel(info?.muscle || ""))}</small>
+                </div>
+                ${sparkline(rows, body ? "reps" : "e1rm")}
+                <p class="hint">${meta}</p>
+              </article>`;
+            })
+            .join("")}</div>`
+        : `<p class="empty">Sobald du Übungen trainierst, siehst du hier den Verlauf jeder Übung.</p>`}
       <p class="hint">Punkt berühren zeigt Datum und Ausführung.</p>
     </section>
 
@@ -236,27 +274,6 @@ export async function renderProgress(ctx) {
 
     <p class="hint">${icon("flame")} Alle Werte bleiben auf deinem Gerät.</p>
   `;
-
-  // ---- Verlauf-Umschaltung ###############################################
-  const select = root.querySelector("#chart-select");
-  const wrap = root.querySelector("#chart-wrap");
-  if (select) {
-    const drawChart = () => {
-      const rows = historyById.get(select.value) || [];
-      wrap.innerHTML = rows.length ? sparkline(rows) : `<p class="empty">Noch keine Daten.</p>`;
-      const meta = rows[rows.length - 1];
-      const info = `<p class="hint">${rows.length} Trainings · aktuell ${esc(formatWeight(meta?.bestWeight || 0))} kg${
-        meta?.bestReps ? ` × ${meta.bestReps}` : ""
-      }</p>`;
-      const holder = root.querySelector("#chart-meta");
-      if (holder) holder.remove();
-      wrap.insertAdjacentHTML("afterend", `<div id="chart-meta">${info}</div>`);
-    };
-    select.addEventListener("change", drawChart);
-    drawChart();
-  } else {
-    wrap.innerHTML = `<p class="empty">Sobald du Kraftübungen trainierst, siehst du hier den Gewichtsverlauf.</p>`;
-  }
 
   return root;
 }
