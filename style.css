@@ -1053,6 +1053,46 @@ select.input { appearance: none; }
 
 .view-progress .stat-row { margin-bottom: 4px; }
 
+/* ---------- Einstellungen: Training ---------- */
+.settings-grid { display: grid; gap: 10px; }
+.settings-grid small { line-height: 1.4; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: -4px; }
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0 2px;
+  cursor: pointer;
+}
+.switch-row span { font-size: 0.95rem; font-weight: 600; }
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 46px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  position: relative;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--muted);
+  transition: transform 0.15s, background 0.15s;
+}
+.switch:checked { background: var(--accent); border-color: var(--accent); }
+.switch:checked::after { transform: translateX(20px); background: var(--accent-ink); }
+
 /* Übungsverlauf: eine Karte pro Übung, alles direkt sichtbar */
 .chart-list { display: grid; gap: 0; }
 .chart-card svg { display: block; width: 100%; height: auto; margin-top: 8px; }

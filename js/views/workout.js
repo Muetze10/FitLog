@@ -79,7 +79,7 @@ async function showRestNotification(body, { final = false } = {}) {
       renotify: true,
       requireInteraction: false,
       silent: !final,
-      vibrate: final ? [300] : undefined,
+      vibrate: final && restPrefs.vibrate ? [300] : undefined,
       body,
       icon: "./icons/icon-192.png",
     });
@@ -100,6 +100,8 @@ async function closeRestNotifications() {
 
 /** Countdown als Benachrichtigung mitlaufen lassen – auch ohne sichtbare App. */
 let restNotify = null; // { endAt, timerId, done }
+// Trainings-Einstellungen (werden beim Rendern aus den Einstellungen geladen).
+let restPrefs = { notify: true, vibrate: true };
 
 function stopRestNotifications() {
   if (restNotify?.timerId) clearInterval(restNotify.timerId);
@@ -107,6 +109,7 @@ function stopRestNotifications() {
 }
 
 function startRestNotifications(seconds) {
+  if (!restPrefs.notify) return;
   if (!("Notification" in window) || Notification.permission !== "granted") return;
   stopRestNotifications();
   const entry = { endAt: Date.now() + seconds * 1000, done: false, timerId: null };
@@ -126,8 +129,30 @@ function startRestNotifications(seconds) {
 export async function renderWorkout(ctx) {
   ctx.setTitle("Training");
   let workout = store.getActiveWorkout();
-  const [exercises, finishedWorkouts] = await Promise.all([store.listExercises(), store.listWorkouts()]);
+  const [exercises, finishedWorkouts, defaultRestSec, bumpStepKg, bumpMinReps, restNotifyEnabled, vibrateEnabled] =
+    await Promise.all([
+      store.listExercises(),
+      store.listWorkouts(),
+      store.getSetting("defaultRestSec", 0),
+      store.getSetting("bumpStepKg", 2.5),
+      store.getSetting("bumpMinReps", 12),
+      store.getSetting("restNotifyEnabled", true),
+      store.getSetting("vibrateEnabled", true),
+    ]);
+  restPrefs = { notify: restNotifyEnabled !== false, vibrate: vibrateEnabled !== false };
+  const settings = {
+    defaultRestSec: Number(defaultRestSec) > 0 ? Number(defaultRestSec) : 0,
+    bumpStepKg: Number(bumpStepKg) > 0 ? Number(bumpStepKg) : 2.5,
+    bumpMinReps: Number(bumpMinReps) > 0 ? Math.round(Number(bumpMinReps)) : 12,
+  };
   const byId = new Map(exercises.map((e) => [e.id, e]));
+  // Wirksame Pause: eigene Angabe an der Übung schlägt die Einstellung,
+  // die Einstellung schlägt den Plan-/Übungsstandard (90 s).
+  const effectiveRest = (ex) => {
+    if (ex?.restSecCustom && ex?.restSec > 0) return ex.restSec;
+    if (settings.defaultRestSec > 0) return settings.defaultRestSec;
+    return ex?.restSec || 90;
+  };
   const historyCache = new Map();
 
   const root = document.createElement("div");
@@ -188,7 +213,7 @@ export async function renderWorkout(ctx) {
         if (restEndsAt) {
           restEndsAt = 0;
           toast("Pause vorbei – nächster Satz");
-          try { navigator.vibrate?.(300); } catch { /* nicht unterstützt */ }
+          try { if (restPrefs.vibrate) navigator.vibrate?.(300); } catch { /* nicht unterstützt */ }
         }
       }
     }
@@ -364,6 +389,8 @@ export async function renderWorkout(ctx) {
         <details>
           <summary>${icon("gear", "icon")} Einstellungen bearbeiten</summary>
           <div class="setup-grid">
+            <label class="field"><span>Pause (s)</span>
+              <input class="input" inputmode="numeric" data-rest value="${Math.round(effectiveRest(ex))}" placeholder="Standard" /></label>
             <label class="field"><span>Griff / Variante</span>
               <input class="input" data-setup="grip" value="${esc(ex.grip || "")}" placeholder="z. B. Seil" /></label>
             ${SETUP_FIELDS.map(
@@ -428,9 +455,9 @@ export async function renderWorkout(ctx) {
   function maybeSuggestWeightBump(ex, set) {
     const info = byId.get(ex.exerciseId);
     if (isCardio(ex) || info?.equipment === "koerpergewicht") return;
-    const threshold = Math.max(12, ex.targetRepsMax || 12);
+    const threshold = Math.max(settings.bumpMinReps, ex.targetRepsMax || 0);
     if (set.reps <= threshold || set.weight <= 0) return;
-    const suggestion = Math.round((set.weight + 2.5) * 2) / 2;
+    const suggestion = Math.round((set.weight + settings.bumpStepKg) * 100) / 100;
     openModal(
       `<h2 class="modal-title">Gewicht erhöhen?</h2>
        <p class="modal-text">${esc(formatWeight(set.weight))} kg × ${set.reps} geschafft – Zeit für mehr!</p>
@@ -498,7 +525,7 @@ export async function renderWorkout(ctx) {
         updateSet(workout, ex.exerciseId, index, { done: !wasDone });
         save();
         updateSummary();
-        if (!wasDone) startRest(ex.restSec || 90);
+        if (!wasDone) startRest(effectiveRest(ex));
         // Erledigte Übungen rutschen ans Ende (und beim Abhaken zurück nach
         // oben). Neu zeichnen nur bei Positionswechsel – sonst verlieren
         // offene Eingaben in anderen Feldern ihren Stand.
@@ -550,6 +577,20 @@ export async function renderWorkout(ctx) {
         updateSetupInput(ex, input);
         save();
       });
+    });
+    // Eigene Satzpause dieser Übung: leer = Einstellung/Plan-Standard gilt.
+    card.querySelector("[data-rest]")?.addEventListener("change", (ev) => {
+      const sec = Math.round(parseNumber(ev.target.value));
+      if (sec > 0) {
+        ex.restSec = sec;
+        ex.restSecCustom = true;
+        toast(`Pause für diese Übung: ${sec} s`);
+      } else {
+        ev.target.value = Math.round(effectiveRest(ex));
+        ex.restSecCustom = false;
+        toast("Standard-Pause übernommen");
+      }
+      save();
     });
   }
 

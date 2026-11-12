@@ -3,7 +3,7 @@
 // WICHTIG: Bei jeder Änderung an Dateien CACHE_VERSION erhöhen!
 // ============================================================
 
-const CACHE_VERSION = "fitlog-v13";
+const CACHE_VERSION = "fitlog-v14";
 const ASSETS = [
   "./",
   "./index.html",

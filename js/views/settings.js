@@ -52,10 +52,54 @@ export async function renderSettings(ctx) {
   const usage = estimate ? (estimate.usage / 1024 / 1024).toFixed(1) : null;
   const quota = estimate && estimate.quota ? (estimate.quota / 1024 / 1024 / 1024).toFixed(1) : null;
 
+  // Trainings-Einstellungen laden (Defaults wie bisher im Code verankert).
+  const [defaultRestSec, bumpStep, bumpMinReps, restNotify, vibrate] = await Promise.all([
+    store.getSetting("defaultRestSec", 0),
+    store.getSetting("bumpStepKg", 2.5),
+    store.getSetting("bumpMinReps", 12),
+    store.getSetting("restNotifyEnabled", true),
+    store.getSetting("vibrateEnabled", true),
+  ]);
+
   const root = document.createElement("div");
   root.className = "view";
   root.innerHTML = `
     <div class="section-head"><h2>Einstellungen</h2></div>
+
+    <section class="card">
+      <h3>Training</h3>
+      <div class="settings-grid">
+        <label class="field"><span>Standard-Satzpause (Sekunden)</span>
+          <input class="input" id="set-rest" inputmode="numeric" value="${defaultRestSec > 0 ? Math.round(defaultRestSec) : ""}" placeholder="0 = wie Übung / Plan" />
+        </label>
+        <div class="chip-row" id="rest-presets" role="group" aria-label="Pausen-Vorlagen">
+          <button class="btn btn-ghost btn-sm" data-sec="45">45 s</button>
+          <button class="btn btn-ghost btn-sm" data-sec="60">60 s</button>
+          <button class="btn btn-ghost btn-sm" data-sec="90">90 s</button>
+          <button class="btn btn-ghost btn-sm" data-sec="120">120 s</button>
+          <button class="btn btn-ghost btn-sm" data-sec="180">180 s</button>
+          <button class="btn btn-ghost btn-sm" data-sec="0">Wie Übung</button>
+        </div>
+        <small class="muted">0 = die Pause der Übung bzw. des Plans gilt. Ein eigener Wert gilt für alle Übungen – außer du setzt die Pause einzeln in der Trainingsansicht („Einstellungen bearbeiten“).</small>
+
+        <label class="field"><span>Steigerungsschritt (kg)</span>
+          <input class="input" id="set-bump-step" inputmode="decimal" value="${bumpStep > 0 ? bumpStep : 2.5}" />
+        </label>
+        <label class="field"><span>Gewicht erhöhen ab (Wiederholungen)</span>
+          <input class="input" id="set-bump-reps" inputmode="numeric" value="${bumpMinReps > 0 ? Math.round(bumpMinReps) : 12}" />
+        </label>
+        <small class="muted">Der Steigerungs-Dialog erscheint nach dem letzten Satz einer Übung, wenn die Wiederholungen über diesem Wert liegen. Der Schritt ist der Vorschlag im Dialog.</small>
+
+        <label class="switch-row"><span>Pausen-Benachrichtigung</span>
+          <input type="checkbox" id="set-notify" class="switch" ${restNotify ? "checked" : ""} />
+        </label>
+        <small class="muted">Der Pausen-Countdown läuft als Benachrichtigung weiter – auch ohne Bildschirm (Android / installierte PWA).</small>
+
+        <label class="switch-row"><span>Vibration bei Pausenende</span>
+          <input type="checkbox" id="set-vibrate" class="switch" ${vibrate ? "checked" : ""} />
+        </label>
+      </div>
+    </section>
 
     <section class="card">
       <h3>Sicherung</h3>
@@ -89,6 +133,47 @@ export async function renderSettings(ctx) {
       <p class="muted">Krafttrainingstagebuch für Android. Offline, ohne Konto, ohne Tracking.</p>
     </section>
   `;
+
+  // ---- Trainings-Einstellungen speichern #################################
+  const parseNum = (v, fallback, min = 0) => {
+    const n = Number(String(v).replace(",", "."));
+    return Number.isFinite(n) && n >= min ? n : fallback;
+  };
+
+  const restInput = root.querySelector("#set-rest");
+  const saveRest = () => {
+    store.setSetting("defaultRestSec", parseNum(restInput.value, 0, 0));
+    toast("Satzpause gespeichert");
+  };
+  restInput.addEventListener("change", saveRest);
+  root.querySelectorAll("#rest-presets [data-sec]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      restInput.value = btn.dataset.sec === "0" ? "" : btn.dataset.sec;
+      saveRest();
+    });
+  });
+
+  const bumpStepInput = root.querySelector("#set-bump-step");
+  bumpStepInput.addEventListener("change", () => {
+    store.setSetting("bumpStepKg", parseNum(bumpStepInput.value, 2.5, 0.5));
+    toast("Steigerungsschritt gespeichert");
+  });
+
+  const bumpRepsInput = root.querySelector("#set-bump-reps");
+  bumpRepsInput.addEventListener("change", () => {
+    store.setSetting("bumpMinReps", Math.round(parseNum(bumpRepsInput.value, 12, 1)));
+    toast("Schwelle gespeichert");
+  });
+
+  root.querySelector("#set-notify").addEventListener("change", (ev) => {
+    store.setSetting("restNotifyEnabled", ev.target.checked);
+    toast(ev.target.checked ? "Pausen-Benachrichtigung an" : "Pausen-Benachrichtigung aus");
+  });
+
+  root.querySelector("#set-vibrate").addEventListener("change", (ev) => {
+    store.setSetting("vibrateEnabled", ev.target.checked);
+    toast(ev.target.checked ? "Vibration an" : "Vibration aus");
+  });
 
   root.querySelector("#export").addEventListener("click", async () => {
     try {
