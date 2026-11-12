@@ -1053,6 +1053,25 @@ select.input { appearance: none; }
 
 .view-progress .stat-row { margin-bottom: 4px; }
 
+/* ---------- Übungs-Beschreibung ---------- */
+.ex-info-focus {
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.ex-info p { margin: 6px 0; }
+.ex-info-tips {
+  margin: 8px 0 2px;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+.ex-info-tips li { font-size: 0.9rem; color: var(--muted); }
+.ex-info-tips li::marker { color: var(--accent); }
+
 /* ---------- Einstellungen: Training ---------- */
 .settings-grid { display: grid; gap: 10px; }
 .settings-grid small { line-height: 1.4; }

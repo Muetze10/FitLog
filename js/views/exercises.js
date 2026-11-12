@@ -6,6 +6,7 @@ import * as store from "../store.js";
 import { exerciseHistory, personalRecords } from "../core/stats.js";
 import { formatDate, formatVolume, formatWeight } from "../core/format.js";
 import { EQUIPMENT, MUSCLE_GROUPS, equipmentLabel, muscleLabel, validateExercise } from "../core/validation.js";
+import { EXERCISE_INFO } from "../data/exerciseInfo.js";
 import { confirmDialog, icon, esc, openModal, toast } from "../ui.js";
 
 function openExerciseForm(exercise = null, onSaved) {
@@ -149,6 +150,7 @@ export async function renderExerciseDetail(ctx, { id }) {
   }
 
   const history = exerciseHistory(workouts, id);
+  const info = EXERCISE_INFO[id];
   const records = personalRecords(workouts);
   const record = records.find((r) => r.exerciseId === id);
   const last = history[history.length - 1];
@@ -169,6 +171,17 @@ export async function renderExerciseDetail(ctx, { id }) {
       <div class="stat"><span class="stat-value">${record ? formatWeight(record.oneRM) + " kg" : "–"}</span><span class="stat-label">Bestes 1RM</span></div>
       <div class="stat"><span class="stat-value">${history.length}</span><span class="stat-label">Einheiten</span></div>
     </section>
+
+    ${
+      info
+        ? `<section class="card ex-info">
+      <h3>Ausführung</h3>
+      <p class="ex-info-focus">${esc(info.focus)}</p>
+      <p>${esc(info.execution)}</p>
+      <ul class="ex-info-tips">${info.tips.map((t) => `<li>${esc(t)}</li>`).join("")}</ul>
+    </section>`
+        : ""
+    }
 
     <section>
       <div class="section-head"><h3>Verlauf</h3></div>
