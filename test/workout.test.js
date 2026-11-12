@@ -179,6 +179,24 @@ test("nextSetSuggestion: letzter Satz vor Plan-Ziel vor Historie", () => {
   assert.deepEqual(nextSetSuggestion({ sets: [] }, []), { weight: 0, reps: 8 });
 });
 
+test("nextSetSuggestion: letzter abgeschlossener Satz schlägt offene Reihen", () => {
+  // Reihen aus dem Plan (71, offen) plus ein bewusst gewählter Satz (80, done):
+  // ein neuer Satz nimmt das letzte GEWÄHLTE Gewicht, nicht die offene Reihe.
+  const ex = {
+    sets: [
+      { weight: 71, reps: 0, done: false },
+      { weight: 80, reps: 8, done: true },
+      { weight: 71, reps: 0, done: false },
+    ],
+    targetWeight: 71,
+    targetRepsMin: 8,
+  };
+  assert.deepEqual(nextSetSuggestion(ex, []), { weight: 80, reps: 8 });
+  // Nach dem Abhaken des letzten Satzes gilt weiterhin dessen Gewicht.
+  ex.sets[2] = { weight: 80, reps: 7, done: true };
+  assert.deepEqual(nextSetSuggestion(ex, []), { weight: 80, reps: 7 });
+});
+
 test("addSet und updateSet vertragen Cardio-Dauer und BPM", () => {
   const w = createWorkout({ id: "w1" });
   addExercise(w, "crosstrainer", { type: "cardio", cardioMinutes: 20, cardioTargetBpm: 160 });

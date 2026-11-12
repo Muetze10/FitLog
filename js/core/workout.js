@@ -135,15 +135,26 @@ export function suggestNextSet(history, fallbackReps = 8) {
 
 /**
  * Vorschlag für den nächsten Satz in der Trainingsansicht:
- * 1. letzter erfasster Satz dieses Trainings,
- * 2. Ziel-Gewicht aus dem Plan (targetWeight),
- * 3. Historie, sonst Fallback.
+ * 1. letzter ABGESCHLOSSENER Satz dieses Trainings (sein Gewicht wurde
+ *    bewusst gewählt und ist damit das aktuellste „letzte Gewicht"),
+ * 2. letzte offene, vorbefüllte Reihe (z. B. aus dem Plan),
+ * 3. Ziel-Gewicht aus dem Plan (targetWeight),
+ * 4. Historie, sonst Fallback.
  */
 export function nextSetSuggestion(ex, history = [], fallbackReps = 8) {
   const sets = ex?.sets || [];
-  const last = sets[sets.length - 1];
-  if (last) {
-    return { weight: Number(last.weight) || 0, reps: Number(last.reps) || ex?.targetRepsMin || fallbackReps };
+  const usable = (s) => (Number(s?.weight) || 0) > 0 || (Number(s?.reps) || 0) > 0;
+  for (let i = sets.length - 1; i >= 0; i--) {
+    const s = sets[i];
+    if (s.done && usable(s)) {
+      return { weight: Number(s.weight) || 0, reps: Number(s.reps) || ex?.targetRepsMin || fallbackReps };
+    }
+  }
+  for (let i = sets.length - 1; i >= 0; i--) {
+    const s = sets[i];
+    if (!s.done && usable(s)) {
+      return { weight: Number(s.weight) || 0, reps: Number(s.reps) || ex?.targetRepsMin || fallbackReps };
+    }
   }
   const targetWeight = Number(ex?.targetWeight) || 0;
   if (targetWeight > 0) return { weight: targetWeight, reps: ex?.targetRepsMin || fallbackReps };

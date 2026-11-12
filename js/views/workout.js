@@ -514,7 +514,11 @@ export async function renderWorkout(ctx) {
         } else {
           draw();
         }
-        if (!wasDone) maybeSuggestWeightBump(ex, ex.sets[index]);
+        if (!wasDone) {
+          // Steigerungs-Frage nur nach dem LETZTEN offenen Satz der Übung –
+          // nicht nach jedem einzelnen Satz mit vielen Wiederholungen.
+          if (!ex.sets.some((s) => !s.done)) maybeSuggestWeightBump(ex, ex.sets[index]);
+        }
       });
       row.querySelector("[data-act='del-set']").addEventListener("click", () => {
         removeSet(workout, ex.exerciseId, index);
