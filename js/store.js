@@ -9,7 +9,7 @@ import { normalizeBlock } from "./core/blocks.js";
 
 const ACTIVE_KEY = "fitlog.activeWorkout";
 /** Erhöht man SEED_VERSION, rüstet syncSeeds() neue Startübungen nach. */
-const SEED_VERSION = 3;
+const SEED_VERSION = 4;
 
 export function uid(prefix = "id") {
   const rand = globalThis.crypto?.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -42,6 +42,22 @@ export async function syncSeeds() {
   const missingExercises = seedExercises().filter((e) => !has(exercises, e.id));
   if (missingExercises.length) await db.putMany("exercises", missingExercises);
 
+  // SEED_VERSION 4: Superset Kabel-Curls + Trizepsdrücken im Studio-Plan
+  // nachrüsten – nur wenn der Plan beide Übungen noch unverdrahtet enthält.
+  let migratedPlans = 0;
+  if (version < 4) {
+    const studio = plans.find((p) => p.id === "plan-studio");
+    const pairIds = ["kabel-curls", "trizepsdruecken-kabel"];
+    const pair = (studio?.exercises || []).filter((b) => pairIds.includes(b.exerciseId));
+    if (pair.length === 2 && pair.every((b) => !b.superset)) {
+      for (const block of studio.exercises) {
+        if (pairIds.includes(block.exerciseId)) block.superset = "A";
+      }
+      await db.put("plans", studio);
+      migratedPlans++;
+    }
+  }
+
   let addedPlans = 0;
   const removedSeeds = new Set((await db.getOne("settings", "removedSeedPlans"))?.value || []);
   for (const plan of seedPlans()) {
@@ -50,7 +66,7 @@ export async function syncSeeds() {
     addedPlans++;
   }
   await db.put("settings", { key: "seedVersion", value: SEED_VERSION });
-  return { exercises: missingExercises.length, plans: addedPlans };
+  return { exercises: missingExercises.length, plans: addedPlans, migratedPlans };
 }
 
 // ---------- Übungen ----------

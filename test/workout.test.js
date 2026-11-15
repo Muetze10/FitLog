@@ -31,6 +31,18 @@ test("createWorkout erzeugt ein leeres Training mit Zielwerten", () => {
   assert.deepEqual(w.exercises[0].sets, []);
 });
 
+test("createWorkout übernimmt den Superset-Schlüssel in die Übung", () => {
+  const w = createWorkout({
+    id: "w1",
+    exercises: [
+      { exerciseId: "kabel-curls", sets: 3, superset: "A" },
+      { exerciseId: "trizepsdruecken-kabel", sets: 3 },
+    ],
+  });
+  assert.equal(w.exercises[0].superset, "A");
+  assert.equal(w.exercises[1].superset, null);
+});
+
 test("createWorkout verlangt eine id", () => {
   assert.throws(() => createWorkout({ name: "x" }), /id/);
 });

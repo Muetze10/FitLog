@@ -58,6 +58,7 @@ export function normalizeBlock(block = {}) {
     restSec: Math.max(0, Math.round(Number(block.restSec) || 90)),
     targetWeight: Math.max(0, Number(block.targetWeight) || 0),
     grip: String(block.grip || "").trim(),
+    superset: String(block.superset || "").trim() || null,
     setup: normalizeSetup(block.setup),
     setupText: String(block.setupText || "").trim(),
     note: String(block.note || "").trim(),

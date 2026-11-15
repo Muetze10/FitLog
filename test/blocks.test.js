@@ -34,8 +34,15 @@ test("normalizeBlock ergänzt fehlende Felder alter Pläne", () => {
   assert.equal(block.type, "kraft");
   assert.equal(block.targetWeight, 0);
   assert.equal(block.grip, "");
+  assert.equal(block.superset, null);
   assert.deepEqual(block.setup, { sitz: null, winkel: null, polster: null, fuss: null });
   assert.equal(block.cardioMinutes, 0);
+});
+
+test("normalizeBlock bewahrt den Superset-Schlüssel", () => {
+  assert.equal(normalizeBlock({ exerciseId: "kabel-curls", superset: "A" }).superset, "A");
+  assert.equal(normalizeBlock({ exerciseId: "kabel-curls", superset: "" }).superset, null);
+  assert.equal(normalizeBlock({ exerciseId: "kabel-curls", superset: "  B  " }).superset, "B");
 });
 
 test("normalizeBlock bewahrt Klasse-Blöcke: Dezimal-Einstellungen, Griff, Notiz", () => {

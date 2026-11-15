@@ -1053,6 +1053,18 @@ select.input { appearance: none; }
 
 .view-progress .stat-row { margin-bottom: 4px; }
 
+/* ---------- Supersets ---------- */
+.exercise-card.is-superset { border-left: 3px solid var(--accent); }
+.badge-superset {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.type-badge.is-superset {
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
 /* ---------- Trainingsansicht: Button-Zeile je Übung ---------- */
 .btn-row { display: flex; gap: 8px; }
 .btn-row .btn { flex: 1 1 0; }

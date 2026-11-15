@@ -30,6 +30,7 @@ export function createWorkout({ id, name, planId = null, exercises = [], started
         type: block.type,
         targetWeight: block.targetWeight,
         grip: block.grip,
+        superset: block.superset ?? null,
         setup: block.setup,
         setupText: block.setupText,
         note: block.note,

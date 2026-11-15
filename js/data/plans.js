@@ -45,8 +45,8 @@ export const STUDIO_PLAN = {
       setup: { sitz: 8, winkel: 2 },
       targetWeight: 71,
     },
-    { exerciseId: "kabel-curls", sets: 3, repsMin: 10, repsMax: 12, restSec: 60, grip: "Stange", targetWeight: 25 },
-    { exerciseId: "trizepsdruecken-kabel", sets: 3, repsMin: 10, repsMax: 12, restSec: 60, grip: "Seil", targetWeight: 25 },
+    { exerciseId: "kabel-curls", sets: 3, repsMin: 10, repsMax: 12, restSec: 60, grip: "Stange", targetWeight: 25, superset: "A" },
+    { exerciseId: "trizepsdruecken-kabel", sets: 3, repsMin: 10, repsMax: 12, restSec: 60, grip: "Seil", targetWeight: 25, superset: "A" },
     { exerciseId: "crunches", sets: 3, repsMin: 15, repsMax: 20, restSec: 45, note: "Seitlich abwechselnd" },
   ],
 };

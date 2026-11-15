@@ -316,6 +316,27 @@ export async function renderWorkout(ctx) {
     return ex.sets.some((s) => !s.done) || (ex.targetSets ? done < ex.targetSets : false);
   }
 
+  /** Superset-Gruppen: aufeinanderfolgende Blöcke mit gleichem Schlüssel
+   *  bekommen einen gemeinsamen Buchstaben (A, B, C …). */
+  function supersetLetters(exercises) {
+    const map = new Map();
+    let letter = 0;
+    let current = null;
+    for (const ex of exercises) {
+      const key = ex.superset || "";
+      if (!key) {
+        current = null;
+        continue;
+      }
+      if (key !== current) {
+        current = key;
+        letter++;
+      }
+      map.set(ex.exerciseId, "ABCDEFGH"[letter - 1] || "S");
+    }
+    return map;
+  }
+
   function draw() {
     const totalSets = workoutSetCount(workout);
     root.innerHTML = `
@@ -331,25 +352,29 @@ export async function renderWorkout(ctx) {
       <section class="exercise-stack">
         ${
           workout.exercises.length
-            ? loadExercises()
-                .map((ex, order) => {
-                  const info = byId.get(ex.exerciseId);
-                  const cardio = isCardio(ex);
-                  const open = exerciseOpen(ex);
-                  const doneCount = ex.sets.filter((s) => s.done).length;
-                  const target = !cardio && ex.targetSets ? ` · ${doneCount}/${ex.targetSets}` : "";
-                  return `<article class="card exercise-card ${cardio ? "is-cardio" : ""} ${!open ? "is-done-ex" : ""}" data-ex="${esc(ex.exerciseId)}">
+            ? (() => {
+                const ssLetters = supersetLetters(workout.exercises);
+                return loadExercises()
+                  .map((ex, order) => {
+                    const info = byId.get(ex.exerciseId);
+                    const cardio = isCardio(ex);
+                    const open = exerciseOpen(ex);
+                    const doneCount = ex.sets.filter((s) => s.done).length;
+                    const target = !cardio && ex.targetSets ? ` · ${doneCount}/${ex.targetSets}` : "";
+                    const ss = ssLetters.get(ex.exerciseId);
+                    return `<article class="card exercise-card ${cardio ? "is-cardio" : ""} ${!open ? "is-done-ex" : ""} ${ss ? "is-superset" : ""}" data-ex="${esc(ex.exerciseId)}">
                     <div class="card-head">
                       <div>
-                        <h3><span class="mono muted">${order + 1}.</span> <a class="plain-link" href="#/uebung/${esc(ex.exerciseId)}">${esc(info?.name || ex.exerciseId)}</a>${cardio ? " " + icon("heart", "icon icon-heart") : ""}${!cardio ? ` <span class="muted mono setcount">${doneCount}${ex.targetSets ? `/${ex.targetSets}` : ""} ${doneCount === 1 ? "Satz" : "Sätze"}</span>` : ""}${!cardio && !open ? ` ${icon("check", "icon icon-check-done")}` : ""}</h3>
+                        <h3><span class="mono muted">${order + 1}.</span> <a class="plain-link" href="#/uebung/${esc(ex.exerciseId)}">${esc(info?.name || ex.exerciseId)}</a>${cardio ? " " + icon("heart", "icon icon-heart") : ""}${ss ? ` <span class="badge badge-superset">Superset ${esc(ss)}</span>` : ""}${!cardio ? ` <span class="muted mono setcount">${doneCount}${ex.targetSets ? `/${ex.targetSets}` : ""} ${doneCount === 1 ? "Satz" : "Sätze"}</span>` : ""}${!cardio && !open ? ` ${icon("check", "icon icon-check-done")}` : ""}</h3>
                         <small class="muted">${esc(muscleLabel(info?.muscle))}${targetHint(ex) ? " · " + esc(targetHint(ex)) : ""}${target}</small>
                       </div>
                       <button class="icon-btn" data-act="remove-ex" aria-label="Übung entfernen">${icon("trash")}</button>
                     </div>
                     ${cardio ? cardioBlock(ex) : strengthBlock(ex, info)}
                   </article>`;
-                })
-                .join("")
+                  })
+                  .join("");
+              })()
             : `<p class="empty">Noch keine Übung. Füge deine erste hinzu.</p>`
         }
       </section>

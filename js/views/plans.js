@@ -21,6 +21,13 @@ import {
 import { confirmDialog, exercisePicker, openModal, onResult, icon, esc, toast } from "../ui.js";
 
 const NUMERIC_FIELDS = ["sets", "repsMin", "repsMax", "restSec", "cardioMinutes", "cardioTargetBpm", "targetWeight"];
+
+/** Erster freier Gruppen-Schlüssel für ein neues Superset ("A", "B", …). */
+function nextSupersetKey(exercises) {
+  const used = new Set(exercises.map((e) => e?.superset).filter(Boolean));
+  for (const ch of "ABCDEFGH") if (!used.has(ch)) return ch;
+  return "S" + (exercises.length + 1);
+}
 const SETUP_KEYS = SETUP_FIELDS.map((f) => f.key);
 
 function displayName(name, id) {
@@ -202,6 +209,7 @@ export async function renderPlanDetail(ctx, { id }) {
                 ${!cardio && details ? `<div class="block-meta">${esc(details)}</div>` : ""}
               </div>
               <span class="badge">${esc(blockTargetLine(e))}</span>
+              ${e.superset ? `<span class="badge badge-superset">Superset</span>` : ""}
             </div>`;
           })
           .join("")}
@@ -294,6 +302,7 @@ export async function renderPlanEditor(ctx, { id } = {}) {
                         <div>
                           <strong><span class="mono muted">${index + 1}.</span> ${esc(displayName(byId.get(e.exerciseId)?.name, e.exerciseId))}</strong>
                           <small class="type-badge ${cardio ? "is-cardio" : ""}">${cardio ? "Cardio" : "Kraft"}</small>
+                          ${e.superset ? ` <small class="type-badge is-superset">Superset</small>` : ""}
                         </div>
                         <div class="row-btns">
                           <button class="icon-btn" data-act="up" aria-label="Nach oben" ${index === 0 ? "disabled" : ""}>${icon("up")}</button>
@@ -306,6 +315,14 @@ export async function renderPlanEditor(ctx, { id } = {}) {
                         <button class="mini-toggle-btn" data-act="type" data-type="kraft" aria-pressed="${!cardio}">Kraft</button>
                         <button class="mini-toggle-btn" data-act="type" data-type="cardio" aria-pressed="${cardio}">${icon("heart", "icon icon-heart")} Cardio</button>
                       </div>
+
+                      ${
+                        index > 0 && !cardio
+                          ? `<label class="switch-row"><span>Superset mit Übung ${index} (direkt davor)</span>
+                               <input type="checkbox" class="switch" data-superset-pair ${e.superset ? "checked" : ""} />
+                             </label>`
+                          : ""
+                      }
 
                       <div class="field-grid" ${cardio ? "hidden" : ""}>
                         <label class="field"><span>Sätze</span>
@@ -386,6 +403,19 @@ export async function renderPlanEditor(ctx, { id } = {}) {
           if (next === "cardio" && !block.cardioMinutes) block.cardioMinutes = 20;
           draw();
         });
+      });
+      // Superset: Block mit der vorherigen Übung zu einer Gruppe verbinden.
+      row.querySelector("[data-superset-pair]")?.addEventListener("change", (ev) => {
+        const prev = draft.exercises[index - 1];
+        if (ev.target.checked) {
+          const key = prev?.superset || nextSupersetKey(draft.exercises);
+          if (prev && !prev.superset) prev.superset = key; // Start eines Paares: beide Blöcke verbinden
+          block.superset = key;
+          toast("Superset verbunden");
+        } else {
+          block.superset = null;
+        }
+        draw();
       });
 
       row.querySelectorAll("[data-field]").forEach((input) => {
