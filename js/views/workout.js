@@ -25,7 +25,7 @@ import {
   parseOptionalNumber,
   setupSummary,
 } from "../core/blocks.js";
-import { exerciseHistory, workoutVolume, workoutSetCount } from "../core/stats.js";
+import { estimatedOneRM, exerciseHistory, workoutVolume, workoutSetCount } from "../core/stats.js";
 import { formatDayLabel, formatDuration, formatWeight, formatVolume } from "../core/format.js";
 import { muscleLabel } from "../core/validation.js";
 import { confirmDialog, exercisePicker, openModal, onResult, icon, esc, toast } from "../ui.js";
@@ -223,6 +223,30 @@ export async function renderWorkout(ctx) {
   function exerciseHistoryFor(id) {
     if (!historyCache.has(id)) historyCache.set(id, exerciseHistory(finishedWorkouts, id));
     return historyCache.get(id);
+  }
+
+  /** Bestwert prüfen: übertrifft der abgeschlossene Satz das bisherige Training?
+   *  Kraft: schwerster Satz bzw. bestes e1RM – Bodyweight: meiste Wiederholungen.
+   *  Erwartet mindestens ein früheres Training, sonst würde das erste Loggen spammen. */
+  function checkPersonalRecord(ex, set) {
+    if (!set?.done || isCardio(ex)) return;
+    const history = exerciseHistoryFor(ex.exerciseId);
+    if (!history.length) return;
+    const info = byId.get(ex.exerciseId);
+    if (info?.equipment === "koerpergewicht") {
+      const prevBestReps = Math.max(0, ...history.map((h) => h.bestReps));
+      if ((Number(set.reps) || 0) > prevBestReps) toast(`Neuer Rekord: ${set.reps} Wiederholungen`);
+      return;
+    }
+    if (!((set.weight || 0) > 0)) return;
+    const prevBestWeight = Math.max(0, ...history.map((h) => h.bestWeight));
+    const prevBestOneRM = Math.max(0, ...history.map((h) => h.bestOneRM));
+    const oneRM = estimatedOneRM(set.weight, set.reps);
+    if (set.weight > prevBestWeight) {
+      toast(`Neuer Bestwert: ${formatWeight(set.weight)} kg${set.reps ? ` × ${set.reps}` : ""}`);
+    } else if ((set.reps || 0) > 0 && oneRM > prevBestOneRM) {
+      toast(`Neuer e1RM-Rekord: ${formatWeight(oneRM)} kg`);
+    }
   }
 
   function lastWeightLine(ex) {
@@ -538,6 +562,7 @@ export async function renderWorkout(ctx) {
             const input = card.querySelector(`.set-row[data-idx="${i}"] [data-field="weight"]`);
             if (input) input.value = String(ex.sets[i].weight);
           }
+          checkPersonalRecord(ex, ex.sets[index]);
         }
         if (!wasDone) startRest(effectiveRest(ex));
         // Erledigte Übungen rutschen ans Ende (und beim Abhaken zurück nach
@@ -692,12 +717,43 @@ export async function renderWorkout(ctx) {
       }
       return;
     }
-    const ok = await confirmDialog({
-      title: "Training beenden?",
-      message: `${workoutSummaryLine(workout, { volume: formatVolume(workoutVolume(workout)) })}`,
-      confirmText: "Beenden & speichern",
+    // Drei-Wege-Auswahl wie bei den bekannten Trackern: speichern, verwerfen,
+    // abbrechen – Verwerfen ist auch mit erledigten Sätzen möglich.
+    const action = await new Promise((resolve) => {
+      openModal(
+        `<h2 class="modal-title">Training beenden?</h2>
+         <p class="modal-text">${esc(workoutSummaryLine(workout, { volume: formatVolume(workoutVolume(workout)) }))}</p>
+         <div class="modal-actions column">
+           <button class="btn btn-primary" id="modal-save">${icon("check")} Beenden &amp; speichern</button>
+           <button class="btn btn-danger" id="modal-discard">Verwerfen</button>
+           <button class="btn btn-ghost" data-close>Abbrechen</button>
+         </div>`,
+        {
+          onMount(dialog, closeFn, setResult) {
+            onResult(dialog, resolve);
+            setResult(false); // Abbrechen (auch Backdrop/Escape/data-close)
+            dialog.querySelector("#modal-save").addEventListener("click", () => {
+              setResult("save");
+              closeFn();
+            });
+            dialog.querySelector("#modal-discard").addEventListener("click", () => {
+              setResult("discard");
+              closeFn();
+            });
+          },
+        }
+      );
     });
-    if (!ok) return;
+    if (!action) return;
+    if (action === "discard") {
+      store.clearActiveWorkout();
+      restEndsAt = 0;
+      stopRestNotifications();
+      closeRestNotifications();
+      toast("Training verworfen");
+      location.hash = "#/";
+      return;
+    }
     const finished = finishWorkout({
       ...workout,
       exercises: workout.exercises.filter((e) => e.sets.some((s) => s.done)),
