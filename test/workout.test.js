@@ -9,6 +9,7 @@ import {
   removeExercise,
   removeSet,
   suggestNextSet,
+  syncOpenSetWeights,
   updateExerciseSetup,
   updateSet,
   workoutSummaryLine,
@@ -195,6 +196,33 @@ test("nextSetSuggestion: letzter abgeschlossener Satz schlägt offene Reihen", (
   // Nach dem Abhaken des letzten Satzes gilt weiterhin dessen Gewicht.
   ex.sets[2] = { weight: 80, reps: 7, done: true };
   assert.deepEqual(nextSetSuggestion(ex, []), { weight: 80, reps: 7 });
+});
+
+test("syncOpenSetWeights: letzter erreichter Satz wird Basis für offene Reihen", () => {
+  const ex = {
+    targetWeight: 40,
+    sets: [
+      { weight: 40, reps: 0, done: false },
+      { weight: 40, reps: 0, done: false },
+      { weight: 40, reps: 0, done: false },
+    ],
+  };
+  // Satz 2 mit eigenem Gewicht abschließen → Satz 1 und 3 erben 42.
+  ex.sets[1] = { weight: 42, reps: 10, done: true };
+  assert.deepEqual(syncOpenSetWeights(ex, ex.sets[1]), [0, 2]);
+  assert.equal(ex.sets[0].weight, 42);
+  assert.equal(ex.sets[2].weight, 42);
+  // Bereits geänderte Reihen bleiben unangetastet.
+  ex.sets.push({ weight: 45, reps: 0, done: false });
+  assert.deepEqual(syncOpenSetWeights(ex, ex.sets[1]), []);
+  assert.equal(ex.sets[3].weight, 45);
+});
+
+test("syncOpenSetWeights: ohne Basis-Gewicht keine Änderung", () => {
+  const ex = { targetWeight: 40, sets: [{ weight: 40, reps: 0, done: false }] };
+  assert.deepEqual(syncOpenSetWeights(ex, { weight: 0, reps: 0, done: true }), []);
+  assert.deepEqual(syncOpenSetWeights(ex, null), []);
+  assert.equal(ex.sets[0].weight, 40);
 });
 
 test("addSet und updateSet vertragen Cardio-Dauer und BPM", () => {

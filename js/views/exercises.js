@@ -197,7 +197,7 @@ export async function renderExerciseDetail(ctx, { id }) {
                     <strong>${esc(formatDate(h.date))}</strong>
                     <small class="muted">Bester Satz ${formatWeight(h.bestWeight)} kg × ${h.bestReps} · ${formatVolume(h.volume)}</small>
                   </div>
-                  <span class="badge">${formatWeight(h.oneRM)} kg 1RM</span>
+                  <span class="badge">${formatWeight(h.bestOneRM)} kg 1RM</span>
                 </div>`
               )
               .join("")}</div>`

@@ -1053,6 +1053,10 @@ select.input { appearance: none; }
 
 .view-progress .stat-row { margin-bottom: 4px; }
 
+/* ---------- Trainingsansicht: Button-Zeile je Übung ---------- */
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn { flex: 1 1 0; }
+
 /* ---------- Übungs-Beschreibung ---------- */
 .ex-info-focus {
   color: var(--accent);

@@ -12,6 +12,7 @@ import {
   nextSetSuggestion,
   removeExercise,
   removeSet,
+  syncOpenSetWeights,
   updateExerciseSetup,
   updateSet,
   workoutSummaryLine,
@@ -282,9 +283,11 @@ export async function renderWorkout(ctx) {
       .map((row) => row.ex);
   }
 
-  /** Eine Übung (Kraft) gilt als erledigt, wenn alle Zielsätze abgeschlossen sind. Cardio zählt als offen. */
+  /** Eine Übung (Kraft) gilt als erledigt, wenn alle Zielsätze abgeschlossen sind
+   *  – oder wenn sie von Hand abgehakt wurde (auch bei weniger Sätzen). Cardio zählt als offen. */
   function exerciseOpen(ex) {
     if (isCardio(ex)) return true;
+    if (ex.markedDone) return false;
     const done = ex.sets.filter((s) => s.done).length;
     return ex.sets.some((s) => !s.done) || (ex.targetSets ? done < ex.targetSets : false);
   }
@@ -402,7 +405,10 @@ export async function renderWorkout(ctx) {
             <input class="input" data-setup="setupText" value="${esc(ex.setupText || "")}" placeholder="z. B. Polster gerade" /></label>
         </details>
       </div>
-      <button class="btn btn-ghost btn-sm btn-block" data-act="add-set">${icon("plus")} Satz</button>
+      <div class="btn-row">
+        <button class="btn btn-ghost btn-sm" data-act="add-set">${icon("plus")} Satz</button>
+        <button class="btn btn-ghost btn-sm" data-act="done-ex">${ex.markedDone ? `${icon("close")} Wieder öffnen` : `${icon("check")} Abhaken`}</button>
+      </div>
     `;
   }
 
@@ -525,6 +531,14 @@ export async function renderWorkout(ctx) {
         updateSet(workout, ex.exerciseId, index, { done: !wasDone });
         save();
         updateSummary();
+        if (!wasDone) {
+          // Basis-Gewicht: Der letzte erreichte Satz gilt für alle offenen,
+          // unangetasteten Reihen – nicht mehr die Plan-Vorausfüllung.
+          for (const i of syncOpenSetWeights(ex, ex.sets[index])) {
+            const input = card.querySelector(`.set-row[data-idx="${i}"] [data-field="weight"]`);
+            if (input) input.value = String(ex.sets[i].weight);
+          }
+        }
         if (!wasDone) startRest(effectiveRest(ex));
         // Erledigte Übungen rutschen ans Ende (und beim Abhaken zurück nach
         // oben). Neu zeichnen nur bei Positionswechsel – sonst verlieren
@@ -577,6 +591,12 @@ export async function renderWorkout(ctx) {
         updateSetupInput(ex, input);
         save();
       });
+    });
+    // Übung von Hand abhaken – auch wenn noch nicht alle Zielsätze erreicht sind.
+    card.querySelector("[data-act='done-ex']").addEventListener("click", () => {
+      ex.markedDone = !ex.markedDone;
+      save();
+      draw();
     });
     // Eigene Satzpause dieser Übung: leer = Einstellung/Plan-Standard gilt.
     card.querySelector("[data-rest]")?.addEventListener("change", (ev) => {

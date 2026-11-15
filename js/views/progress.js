@@ -28,6 +28,30 @@ function bestGradeOf(row) {
   return withGrade[0]?.grade ?? null;
 }
 
+/**
+ * Wochen-Schnitt: alle Trainings einer Kalenderwoche zu einem Wert zusammen-
+ * fassen – der beste Wert zählt. So hängt die angezeigte Steigerung nicht von
+ * der Anzahl der Sätze ab: Auch ein Trainingsabend mit wenigen Sätzen zeigt
+ * seine Steigerung, solange ein Satz darüber lag.
+ */
+function weeklyAggregates(rows) {
+  const weeks = new Map();
+  for (const r of rows || []) {
+    const key = mondayOf(r.date);
+    const cur = weeks.get(key);
+    if (!cur) {
+      weeks.set(key, { date: key, bestOneRM: r.bestOneRM, bestWeight: r.bestWeight, bestReps: r.bestReps, grade: bestGradeOf(r) });
+      continue;
+    }
+    if (r.bestOneRM > cur.bestOneRM) cur.bestOneRM = r.bestOneRM;
+    if (r.bestWeight > cur.bestWeight) cur.bestWeight = r.bestWeight;
+    if (r.bestReps > cur.bestReps) cur.bestReps = r.bestReps;
+    const grade = bestGradeOf(r);
+    if (grade != null && (cur.grade == null || Number(grade) > Number(cur.grade))) cur.grade = grade;
+  }
+  return [...weeks.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+}
+
 /** Verlaufs-Kurve als SVG. metric: "e1rm" (Kraft) oder "reps" (Bodyweight). */
 function sparkline(rows, metric = "e1rm") {
   const W = 600;
@@ -44,7 +68,7 @@ function sparkline(rows, metric = "e1rm") {
       : `${formatWeight(p.weight)} kg${p.reps ? ` × ${p.reps}` : ""}`;
   const fmt = (v) => (isReps ? Math.round(v) : formatWeight(v));
 
-  const points = rows.map((r, i) => ({ x: new Date(r.date).getTime(), y: valueOf(r), reps: r.bestReps, weight: r.bestWeight, grade: bestGradeOf(r) }));
+  const points = rows.map((r, i) => ({ x: new Date(r.date).getTime(), date: r.date, y: valueOf(r), reps: r.bestReps, weight: r.bestWeight, grade: bestGradeOf(r) }));
   if (points.length < 2) {
     const p = points[0];
     if (!p) return `<p class="empty">Noch keine Daten.</p>`;
@@ -62,7 +86,8 @@ function sparkline(rows, metric = "e1rm") {
   const yMax = isReps ? Math.max(1, Math.ceil(rawMax)) : Math.ceil(rawMax / 5) * 5 || 5;
   const yMin = isReps ? 0 : Math.max(0, Math.floor(rawMin / 5) * 5 - 5);
   const span = Math.max(1, yMax - yMin);
-  const X = (t) => (PL + (PR - PL) * ((t - xMin) / Math.max(1, xMax - xMin)));
+  // Zeitachse von links (älter) nach rechts (neuer).
+  const X = (t) => PL + (W - PR - PL) * ((t - xMin) / Math.max(1, xMax - xMin));
   const Y = (v) => H - PB - (H - PB - PT) * ((v - yMin) / span);
 
   const line = points.map((p, i) => `${i ? "L" : "M"}${X(p.x).toFixed(1)},${Y(p.y).toFixed(1)}`).join(" ");
@@ -136,8 +161,9 @@ export async function renderProgress(ctx) {
   for (const [id, rows] of historyById) {
     const recent = rows.filter((r) => new Date(r.date).getTime() >= windowStart);
     if (recent.length < 2) continue;
-    const first = recent[0];
-    const last = recent[recent.length - 1];
+    const weeks = weeklyAggregates(recent);
+    const first = weeks[0];
+    const last = weeks[weeks.length - 1];
     const delta = last.bestOneRM - first.bestOneRM;
     if (delta <= 0) continue;
     improvements.push({
@@ -147,7 +173,7 @@ export async function renderProgress(ctx) {
       pct: first.bestOneRM > 0 ? (delta / first.bestOneRM) * 100 : 0,
       weight: last.bestWeight,
       reps: last.bestReps,
-      date: last.date,
+      date: rows[rows.length - 1].date,
     });
   }
   improvements.sort((a, b) => b.delta - a.delta);
@@ -217,19 +243,21 @@ export async function renderProgress(ctx) {
             .map(([id, rows]) => {
               const info = byId.get(id);
               const body = info?.equipment === "koerpergewicht";
-              const first = rows[0];
-              const last = rows[rows.length - 1];
+              // Wochen-Schnitt: Steigerung über Kalenderwochen, unabhängig davon,
+              // wie viele Sätze ein einzelnes Training hatte.
+              const weeks = weeklyAggregates(rows);
+              const wFirst = weeks[0];
+              const wLast = weeks[weeks.length - 1];
               // Kennzahl-Zeile unter der Kurve: Entwicklung der Übung auf einen Blick.
               let meta;
               if (body) {
-                const grade = bestGradeOf(last);
-                meta = `${rows.length} ${rows.length === 1 ? "Training" : "Trainings"} · ${first.bestReps} → ${last.bestReps} Wdh${
-                  grade != null && grade !== "" ? ` (Stufe ${esc(grade)})` : ""
+                meta = `${rows.length} ${rows.length === 1 ? "Training" : "Trainings"} · ${wFirst.bestReps} → ${wLast.bestReps} Wdh${
+                  wLast.grade != null && wLast.grade !== "" ? ` (Stufe ${esc(wLast.grade)})` : ""
                 }`;
               } else {
-                const rise = last.bestOneRM - first.bestOneRM;
-                meta = `${rows.length} ${rows.length === 1 ? "Training" : "Trainings"} · ${esc(formatWeight(first.bestWeight))} → ${esc(
-                  formatWeight(last.bestWeight)
+                const rise = wLast.bestOneRM - wFirst.bestOneRM;
+                meta = `${rows.length} ${rows.length === 1 ? "Training" : "Trainings"} · ${esc(formatWeight(wFirst.bestWeight))} → ${esc(
+                  formatWeight(wLast.bestWeight)
                 )} kg${rise > 0 ? ` · e1RM +${esc(formatWeight(rise))} kg` : ""}`;
               }
               return `<article class="card chart-card">
@@ -243,7 +271,7 @@ export async function renderProgress(ctx) {
             })
             .join("")}</div>`
         : `<p class="empty">Sobald du Übungen trainierst, siehst du hier den Verlauf jeder Übung.</p>`}
-      <p class="hint">Punkt berühren zeigt Datum und Ausführung.</p>
+      <p class="hint">Punkt berühren zeigt Datum und Ausführung. Die Steigerung zählt den besten Wert je Kalenderwoche – die Anzahl der Sätze spielt keine Rolle.</p>
     </section>
 
     <section>

@@ -162,6 +162,31 @@ export function nextSetSuggestion(ex, history = [], fallbackReps = 8) {
 }
 
 /**
+ * Basis-Gewicht für noch offene Reihen übernehmen: Der zuletzt abgeschlossene
+ * Satz gilt für alle offenen, unangetasteten Sätze (Vorausfüllung aus dem Plan
+ * bzw. leere Felder) – die Anzahl der geplanten Sätze spielt keine Rolle.
+ * Benutzerdefinierte Werte in offenen Reihen bleiben unangetastet.
+ * Rückgabe: Indizes der geänderten Reihen (für die Feld-Aktualisierung).
+ */
+export function syncOpenSetWeights(ex, baseSet) {
+  const sets = ex?.sets || [];
+  const base = Number(baseSet?.weight) || 0;
+  if (!(base > 0)) return [];
+  const targetWeight = Number(ex?.targetWeight) || 0;
+  const changed = [];
+  sets.forEach((s, i) => {
+    if (s.done) return;
+    const weight = Number(s.weight) || 0;
+    const untouched = weight === 0 || (targetWeight > 0 && weight === targetWeight);
+    if (untouched && (Number(s.reps) || 0) === 0) {
+      s.weight = base;
+      changed.push(i);
+    }
+  });
+  return changed;
+}
+
+/**
  * Geräte-Einstellungen einer Trainings-Übung ändern:
  * `grip`/`setupText` als Freitext, Sitzzahl/Winkel/Polster/Fußstütze
  * als Schlüssel direkt im Patch (z. B. { sitz: 8 }).
